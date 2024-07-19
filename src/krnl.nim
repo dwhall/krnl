@@ -15,10 +15,10 @@ type
     sig: Signal
     val: T
 
-  Task[S: static int, T] = object of RootObj
-    init: proc(self: Task[S, T], e: Evt[T])
-    dispatch: proc(self: Task[S, T], e: Evt[T])
-    qBuf: ref array[S, Evt[T]]
+  Task[T] = object of RootObj
+    init: proc(self: Task[T], e: Evt[T])
+    dispatch: proc(self: Task[T], e: Evt[T])
+    qBuf: ref openArray[T]
     term: Qctr # f.k.a. "end", a keyword in nim
     head: Qctr
     tail: Qctr
@@ -27,14 +27,14 @@ type
       nvic_pend: uint32
       nvic_irq: uint32
 
-  Handler[S: static int, T] = proc(self: Task[S, T], e: Evt[T])
+  Handler[T] = proc(self: Task[T], e: Evt[T])
 
 
-func ctor[S: static int, T](self: var Task[S, T], init: Handler[S, T], dispatch: Handler[S, T]) =
+func ctor[T](self: var Task[T], init: Handler[T], dispatch: Handler[T]) =
   self.init = init
   self.dispatch = dispatch
 
-func TASK_PEND[S: static int, T](self: var Task[S, T]) {.inline.} =
+func TASK_PEND[T](self: var Task[T]) {.inline.} =
   when buildTarget == "arm_cm":
     self.nvic_pend = self.nvic_irq
 
@@ -46,7 +46,7 @@ func CRIT_EXIT {.inline.} =
   when buildTarget == "arm_cm":
     asm "cpsie i"
 
-func start[S: static int, T](self: var Task[S, T], prio: TaskPrio, qBuf: array[S, T], qLen: QCtr, ie: Evt[T]) =
+func start[T](self: var Task[T], prio: TaskPrio, qBuf: openArray[T], qLen: QCtr, ie: Evt[T]) =
   # DBC_REQUIRE(200 prio > 0) ...
   self.qBuf = qBuf
   self.term = qLen - 1
@@ -57,7 +57,7 @@ func start[S: static int, T](self: var Task[S, T], prio: TaskPrio, qBuf: array[S
   # dispatch the initialization event
   self.init(ie)
 
-func post[S: static int, T](self: var Task[S, T], e: Evt[T]) =
+func post[T](self: var Task[T], e: Evt[T]) =
   # DBC_REQUIRE(300, self.nUsed <= self.end)
   CRIT_ENTRY()
   self.qBuf[self.head] = e
