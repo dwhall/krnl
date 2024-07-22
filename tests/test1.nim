@@ -7,7 +7,7 @@
 
 import unittest
 
-import krnlpkg/krnl
+import krnl
 
-test "correct welcome":
-  check getWelcomeMessage() == "Hello, World!"
+test "Task type exists":
+  check sizeof(Task[int32]) > 8

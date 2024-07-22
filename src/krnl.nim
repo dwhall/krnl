@@ -2,6 +2,7 @@
 # uses this file as the main entry point of the application.
 
 import krnlpkg/krnl
+export Task
 
 when isMainModule:
   discard

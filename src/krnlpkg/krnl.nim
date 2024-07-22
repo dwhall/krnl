@@ -3,7 +3,7 @@
 # Copyright 2024 Dean Hall See LICENSE for details
 #
 
-const buildTarget {.strdefine: "target".}: string = "arm_cm"
+include port
 
 
 type
@@ -11,13 +11,13 @@ type
   TaskPrio* = int8
   Qctr = uint8
 
-  Evt*[T] = object of RootObj
+  Evt*[T] = object
     sig*: Signal
     val*: T
 
   Handler[T] = proc(self: Task[T], e: Evt[T])
 
-  Task*[T] = object of RootObj
+  Task*[T] = object
     init: Handler[T]
     dispatch: Handler[T]
     qBuf: ref openArray[T] = nil
@@ -25,11 +25,9 @@ type
     head: Qctr
     tail: Qctr
     nUsed: Qctr
-
-# Target-specific declarations
-func TASK_PEND[T](self: var Task[T])
-func CRIT_ENTRY()
-func CRIT_EXIT()
+    when buildTarget == "arm_cm":
+      nvic_pend: uint32
+      nvic_irq: uint32
 
 func ctor[T](self: var Task[T], init: Handler[T], dispatch: Handler[T]) =
   self.init = init
@@ -48,11 +46,65 @@ func start[T](self: var Task[T], prio: TaskPrio, qBuf: openArray[T], qLen: QCtr,
 
 func post[T](self: var Task[T], e: Evt[T]) =
   # DBC_REQUIRE(300, self.nUsed <= self.end)
+  CRIT_STAT
   CRIT_ENTRY()
   self.qBuf[self.head] = e
   if self.head == 0:
     self.head = self.term
   else:
     dec self.head
+  inc self.nUsed
   TASK_PEND(self)
   CRIT_EXIT()
+
+#
+# Kernel timer event and methods
+#
+
+type
+  Tctr = uint16
+
+  TimeEvt*[T] = object
+    super: Evt[T]
+    next: ref TimeEvt[T]
+    task: ref Task[T]
+    ctr: Tctr
+    interval: Tctr
+
+proc newTimeEvt[T](head: ref TimeEvt, sig: Signal, task: Task[T]): TimeEvt[T] =  # f.k.a. ctor
+  result.sig = sig
+  result.task = task
+  # insert self into linked list
+  result.next = head
+  head = ref result
+
+func arm[T](self: var TimeEvt[T], ctr: TCtr, interval: Tctr = 0) =
+  CRIT_STAT
+  CRIT_ENTRY()
+  self.ctr = ctr
+  self.interval = interval
+  CRIT_EXIT()
+
+func disarm[T](self: var TimeEvt[T]): bool =
+  CRIT_STAT
+  CRIT_ENTRY()
+  result = (self.ctr != 0)
+  self.ctr = 0
+  self.interval = 0
+  CRIT_EXIT()
+
+proc tick[T](head: ref TimeEvt) =
+  var t = head
+  while t != nil:
+    CRIT_STAT
+    CRIT_ENTRY()
+    if t.ctr == 0:
+      CRIT_EXIT()
+    elif t.ctr == 1:
+      t.ctr = t.interval
+      CRIT_EXIT()
+      t.task.post(t.super)
+    else:
+      dec t.ctr
+      CRIT_EXIT()
+    t = t.next
