@@ -22,27 +22,19 @@
 import std/bitops
 
 import ./arm_cm
-
+import ./ringque
 
 type
+  TaskPrio* = uint8
   Signal* = int32
-  TaskPrio* = int8
-  Qctr = uint8
-
   Evt*[T] = object
     sig*: Signal
     val*: T
-
-  Handler[T] = proc(self: Task[T], e: Evt[T])
-
-  Task*[T] = object
-    init: Handler[T]
-    dispatch: Handler[T]
-    qBuf: ref openArray[T] = nil
-    fin: Qctr # f.k.a. "end", a keyword in nim
-    head: Qctr
-    tail: Qctr
-    nUsed: Qctr
+  Handler[N, T] = proc(self: var Task[N, T], e: Evt[T])
+  Task*[N: static[int], T] = object
+    init*: Handler[N, T]
+    dispatch*: Handler[N, T]
+    qBuf*: RingQue[N, T]
     # ARM Cortex-M specific task attributes:
     nvicPendRegIdx: uint32
     nvicIrq: uint32
@@ -118,28 +110,28 @@ proc start =
      .write()
 
 
-proc setPrio[T](self: var Task[T], prio: TaskPrio) =
+proc setPrio(self: var Task, prio: TaskPrio) =
   assert self.nvicIrq > 0                   # DBC_REQUIRE(200
   assert prio <= (0xFF'u shr nvicPrioShift) # DBC_REQUIRE(201
 
   # Convert the Task priority (1,2,..) to NVIC priority...
   let nvic_prio = ((0xFF'u shr nvicPrioShift) + 1'u - prio) shl nvicPrioShift
+  assert((self.nvicIrq shr 2) <= 1) # if asserts, declare more registers in arm_cm.nim and use them here (maybe make an array)
   let prioReg = case(self.nvicIrq shr 2)
     of 0: NVIC.IPR0
-    of 1: NVIC.IPR1
-    else: assert(false) # if asserts, declare more registers in arm_cm.nim and use them here (maybe make an array)
+    else: NVIC.IPR1
   let prioRegField = case(bitand(self.nvicIrq, 0b11))
     of 0: prioReg.PRI_N0
     of 1: prioReg.PRI_N1
     of 2: prioReg.PRI_N2
     of 3: prioReg.PRI_N3
 
+  assert((self.nvicIrq shr 5) <= 3) # if asserts, declare more registers in arm_cm.nim and use them here (maybe make an array)
   let irqReg = case (self.nvicIrq shr 5)
     of 0: NVIC.ISER0
     of 1: NVIC.ISER1
     of 2: NVIC.ISER2
-    of 3: NVIC.ISER3
-    else: assert(false) # if asserts, declare more registers in arm_cm.nim and use them here (maybe make an array)
+    else: NVIC.ISER3
   let irqBit = 1'u32 shl bitand(self.nvicIrq, 0x1F)
 
   CRIT_STAT
@@ -157,22 +149,14 @@ proc setPrio[T](self: var Task[T], prio: TaskPrio) =
   self.nvicPendRegIdx = (self.nvicIrq shr 5)
   self.nvicIrq = irqBit
 
-proc activate*(self: Task) =
+proc activate*(self: var Task) =
   assert self.nUsed > 0'u8  # DBC_REQUIRE(300
-
-  # Get the event out of the queue
-  # NOTE: no critical section because .tail is accessed only from this task
-  let e = self.qBuf[self.tail]
-  if self.tail == 0:  # need to wrap the tail?
-    self.tail = self.fin  # wrap around
-  else:
-    dec self.tail
 
   CRIT_STAT
   CRIT_ENTRY()
-
-  dec self.nUsed
-  if self.nUsed > 0:
+  # Get the event out of the queue
+  let e = self.qBuf.pop()
+  if self.qBuf.len() > 0:
     # select the set-pending register
     let pendReg = case self.nvicPendRegIdx
       of 0: NVIC.ISPR0
@@ -189,7 +173,7 @@ proc activate*(self: Task) =
   self.dispatch(self, e)
 
 
-func setIRQ*[T](self: Task[T], irq: uint8) =
+func setIRQ*(self: var Task, irq: uint8) =
   self.nvicIrq = irq
 
 
@@ -218,32 +202,23 @@ func run*(appOnStart: proc) {.noreturn.} =
   while true:
     asm "__wfi"
 
-func ctor*[T](self: var Task[T], init: Handler[T], dispatch: Handler[T]) =
+func ctor*[N, T](self: var Task[N, T], init: Handler, dispatch: Handler) =
   self.init = init
   self.dispatch = dispatch
 
-func start[T](self: var Task[T], prio: TaskPrio, qBuf: openArray[T], qLen: QCtr, ie: Evt[T]) =
+func start[N, T](self: var Task[N, T], prio: TaskPrio, qBuf: RingQue[N, T], ie: Evt) =
   # DBC_REQUIRE(200 prio > 0) ...
   self.qBuf = qBuf
-  self.fin = qLen - 1
-  self.head = 0
-  self.tail = 0
-  self.nUsed = 0
   self.setPrio(prio)
   # Initialize this task with the initialization event
   self.init(ie)
 
-func post*[T](self: var Task[T], e: Evt[T]) =
+func post*[N, T](self: var Task[N, T], e: Evt[T]) =
   # DBC_REQUIRE(300, self.nUsed <= self.end)
   CRIT_STAT
   CRIT_ENTRY()
 
-  self.qBuf[self.head] = e
-  if self.head == 0:
-    self.head = self.fin
-  else:
-    dec self.head
-  inc self.nUsed
+  self.qBuf.add(e)
 
   TASK_PEND(self)
   CRIT_EXIT()
@@ -256,16 +231,16 @@ func post*[T](self: var Task[T], e: Evt[T]) =
 type
   Tctr = uint16
 
-  TimeEvt*[T] = object
+  TimeEvt*[N: static[int], T] = object
     super: Evt[T]
-    next: ref TimeEvt[T]
-    task: ref Task[T]
+    next: ref TimeEvt[N, T]
+    task: ref Task[N, T]
     ctr: Tctr
     interval: Tctr
 
-  TimeEvtRef[T] = ref TimeEvt[T]
+  TimeEvtRef[N: static[int], T] = ref TimeEvt[N, T]
 
-proc newTimeEvt*[T](head: TimeEvtRef[T], sig: Signal, task: Task[T]): TimeEvtRef[T] =
+proc newTimeEvt*[N, T](head: TimeEvtRef[N, T], sig: Signal, task: Task[N, T]): TimeEvtRef[N, T] =
   # f.k.a. ctor
   ## Inserts a new TimeEvt at the head of the linked list
   # implicit allocation of TimeEvt node in variable, result
@@ -274,7 +249,7 @@ proc newTimeEvt*[T](head: TimeEvtRef[T], sig: Signal, task: Task[T]): TimeEvtRef
   result.next = head
   head = result
 
-func arm*[T](self: var TimeEvt[T], ctr: TCtr, interval: Tctr = 0) =
+func arm*[N, T](self: var TimeEvt[N, T], ctr: Tctr, interval: Tctr = 0) =
   ## Arms the TimeEvt with the given counter value
   ## The interval argument defaults to zero, which arms a one-shot timer.
   ## Set interval to non-zero for a repeating timer.
@@ -284,7 +259,7 @@ func arm*[T](self: var TimeEvt[T], ctr: TCtr, interval: Tctr = 0) =
   self.interval = interval
   CRIT_EXIT()
 
-func disarm*[T](self: var TimeEvt[T]): bool =
+func disarm*[N, T](self: var TimeEvt[N, T]): bool =
   ## Disarms the given timer.  The timer remains in the list.
   CRIT_STAT
   CRIT_ENTRY()
@@ -294,7 +269,7 @@ func disarm*[T](self: var TimeEvt[T]): bool =
   CRIT_EXIT()
 
 # usually called by the SysTick ISR handler
-proc tick*[T](head: ref TimeEvt) =
+proc tick*[N, T](head: ref TimeEvt[N, T]) =
   ## For each timer event in the list:
   ##    If the counter is 0, do nothing.  The counter is expired.
   ##    If the counter is 1, dispatches the event to its task
