@@ -44,9 +44,6 @@ type
 #
 # sst_port.h
 #
-func CRIT_STAT() {.inline.} =
-  discard
-
 func CRIT_ENTRY*() {.inline.} =
   asm "cpsid i"
 
@@ -134,7 +131,6 @@ proc setPrio(self: var Task, prio: TaskPrio) =
     else: NVIC.ISER3
   let irqBit = 1'u32 shl bitand(self.nvicIrq, 0x1F)
 
-  CRIT_STAT
   CRIT_ENTRY()
 
   # Set the Task priority of the associated IRQ
@@ -152,7 +148,6 @@ proc setPrio(self: var Task, prio: TaskPrio) =
 proc activate*(self: var Task) =
   assert self.nUsed > 0'u8  # DBC_REQUIRE(300
 
-  CRIT_STAT
   CRIT_ENTRY()
   # Get the event out of the queue
   let e = self.qBuf.pop()
@@ -215,7 +210,6 @@ func start[N, T](self: var Task[N, T], prio: TaskPrio, qBuf: RingQue[N, T], ie: 
 
 func post*[N, T](self: var Task[N, T], e: Evt[T]) =
   # DBC_REQUIRE(300, self.nUsed <= self.end)
-  CRIT_STAT
   CRIT_ENTRY()
 
   self.qBuf.add(e)
@@ -253,7 +247,6 @@ func arm*[N, T](self: var TimeEvt[N, T], ctr: Tctr, interval: Tctr = 0) =
   ## Arms the TimeEvt with the given counter value
   ## The interval argument defaults to zero, which arms a one-shot timer.
   ## Set interval to non-zero for a repeating timer.
-  CRIT_STAT
   CRIT_ENTRY()
   self.ctr = ctr
   self.interval = interval
@@ -261,7 +254,6 @@ func arm*[N, T](self: var TimeEvt[N, T], ctr: Tctr, interval: Tctr = 0) =
 
 func disarm*[N, T](self: var TimeEvt[N, T]): bool =
   ## Disarms the given timer.  The timer remains in the list.
-  CRIT_STAT
   CRIT_ENTRY()
   result = (self.ctr != 0)
   self.ctr = 0
@@ -277,7 +269,6 @@ proc tick*[N, T](head: ref TimeEvt[N, T]) =
   ##    Otherwise, decrements the counter by one.
   var t = head
   while t != nil:
-    CRIT_STAT
     CRIT_ENTRY()
     if t.ctr == 0:
       CRIT_EXIT()
