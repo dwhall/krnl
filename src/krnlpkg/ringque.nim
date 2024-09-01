@@ -5,21 +5,22 @@
 ##
 
 type
-  RingQue*[N: static[int], T] = object
+  RingQueIndex = Natural
+  RingQue*[N: static RingQueIndex, T] = object
     buf: array[N, T]
-    readIdx, writeIdx, count: int
+    readIdx, writeIdx, count: RingQueIndex
 
 let qFullError = newException(IndexDefect, "Queue is full")
 let qEmptyError = newException(IndexDefect, "Queue is empty")
 
-template cap*[N, T](self: RingQue[N, T]): int =
+template cap*[N, T](self: RingQue[N, T]): RingQueIndex =
   ## Returns the capacity of the queue
-  len(self.buf)
+  N
 
 template add*[N, T](self: var RingQue[N, T], item: T) =
   ## Adds the item to the writeIdx position of the queue.
   ## Raises an IndexDefect if the queue is already full.
-  if self.count == self.cap:
+  if self.full:
     raise qFullError
   self.buf[self.writeIdx] = item
   if self.writeIdx == 0:
@@ -39,7 +40,7 @@ template pop*[N, T](self: var RingQue[N, T]): T =
   dec self.count
   result
 
-template len*[N, T](self: RingQue[N, T]): int =
+template len*[N, T](self: RingQue[N, T]): RingQueIndex =
   ## Returns the current number of items in the queue
   self.count
 
@@ -48,9 +49,10 @@ template full*[N, T](self: RingQue[N, T]): bool =
   self.count == self.cap
 
 when isMainModule:
-  var c: RingQue[32, int64]
+  var c: RingQue[32.RingQueIndex, int64]
   c.add(3'i64)
   c.add(2'i64)
   c.add(1'i64)
   discard c.pop()
   echo $c.pop()
+  echo $c.cap
