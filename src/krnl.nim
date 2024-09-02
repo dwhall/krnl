@@ -4,5 +4,5 @@
 import krnlpkg/krnl
 export Signal, TaskPrio, Evt, Task, LockKey
 
-when isMainModule:
-  discard
+import krnlpkg/ringque
+export RingQue
