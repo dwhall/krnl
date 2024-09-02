@@ -19,8 +19,6 @@
 ##     run()
 ##
 
-import std/bitops
-
 import ./arm_cm
 import ./ringque
 
@@ -77,12 +75,12 @@ proc init* =
   SCB.SHPR3
      .PRI_14(0xFF'u32)  # write to PendSV prio
      .write()
-  let prio = SCB.SHPR3.PRI_14.uint32  # read back
+  let prio = SCB.SHPR3.PRI_14.int # read back
   SCB.SHPR3 = tmp       # restore original value
 
   var n: uint32
-  for n in 0..8:
-    if bitand(prio, (1'u32 shl n)) != 0'u:
+  for n in 0 ..< 8:
+    if (prio and (1 shl n)) != 0:
       break
   nvicPrioShift = n
 
@@ -117,7 +115,7 @@ proc setPrio(self: var Task, prio: TaskPrio) =
   let prioReg = case(self.nvicIrq shr 2)
     of 0: NVIC.IPR0
     else: NVIC.IPR1
-  let prioRegField = case(bitand(self.nvicIrq, 0b11))
+  let prioRegField = case(self.nvicIrq and 0b11'u32)
     of 0: prioReg.PRI_N0
     of 1: prioReg.PRI_N1
     of 2: prioReg.PRI_N2
@@ -129,7 +127,7 @@ proc setPrio(self: var Task, prio: TaskPrio) =
     of 1: NVIC.ISER1
     of 2: NVIC.ISER2
     else: NVIC.ISER3
-  let irqBit = 1'u32 shl bitand(self.nvicIrq, 0x1F)
+  let irqBit = 1'u32 shl (self.nvicIrq and 0x1F'u32)
 
   CRIT_ENTRY()
 
@@ -137,7 +135,7 @@ proc setPrio(self: var Task, prio: TaskPrio) =
   prioRegField = nvic_prio
 
   # Enable the IRQ associated with the Task
-  irqReg.SETENA = bitor(irqReg.SETENA.uint32, irqBit)
+  irqReg.SETENA = irqReg.SETENA.uint32 or irqBit
 
   CRIT_EXIT()
 
