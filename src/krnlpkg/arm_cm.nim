@@ -39,12 +39,9 @@ declareField(peripheralName=NVIC, registerName=ISER3, fieldName=SETENA, bitOffse
 
 declareRegister(peripheralName=NVIC, registerName=ISPR0, addressOffset=0x200'u32, readAccess=true, writeAccess=true, registerDesc="IRQ 0 to 31 Set Pending Register")
 declareField(peripheralName=NVIC, registerName=ISPR0, fieldName=SETPEND, bitOffset=0, bitWidth=32, readAccess=true, writeAccess=true, fieldDesc="Sets pending, or reads the pending state of a group of itnerrupts")
-declareRegister(peripheralName=NVIC, registerName=ISPR1, addressOffset=0x204'u32, readAccess=true, writeAccess=true, registerDesc="IRQ 0 to 31 Set Pending Register")
-declareField(peripheralName=NVIC, registerName=ISPR1, fieldName=SETPEND, bitOffset=0, bitWidth=32, readAccess=true, writeAccess=true, fieldDesc="Sets pending, or reads the pending state of a group of itnerrupts")
-declareRegister(peripheralName=NVIC, registerName=ISPR2, addressOffset=0x208'u32, readAccess=true, writeAccess=true, registerDesc="IRQ 0 to 31 Set Pending Register")
-declareField(peripheralName=NVIC, registerName=ISPR2, fieldName=SETPEND, bitOffset=0, bitWidth=32, readAccess=true, writeAccess=true, fieldDesc="Sets pending, or reads the pending state of a group of itnerrupts")
-declareRegister(peripheralName=NVIC, registerName=ISPR3, addressOffset=0x20C'u32, readAccess=true, writeAccess=true, registerDesc="IRQ 0 to 31 Set Pending Register")
-declareField(peripheralName=NVIC, registerName=ISPR3, fieldName=SETPEND, bitOffset=0, bitWidth=32, readAccess=true, writeAccess=true, fieldDesc="Sets pending, or reads the pending state of a group of itnerrupts")
+declareRegister(peripheralName=NVIC, registerName=ISPR1, addressOffset=0x204'u32, readAccess=true, writeAccess=true, registerDesc="IRQ 0 to 31 Set Pending Register", derivedFrom=ISPR0)
+declareRegister(peripheralName=NVIC, registerName=ISPR2, addressOffset=0x208'u32, readAccess=true, writeAccess=true, registerDesc="IRQ 0 to 31 Set Pending Register", derivedFrom=ISPR0)
+declareRegister(peripheralName=NVIC, registerName=ISPR3, addressOffset=0x20C'u32, readAccess=true, writeAccess=true, registerDesc="IRQ 0 to 31 Set Pending Register", derivedFrom=ISPR0)
 
 declareRegister(peripheralName=NVIC, registerName=IPR0, addressOffset=0x400'u32, readAccess=true, writeAccess=true, registerDesc="IRQ 0 to 31 Interrupt Priority Register")
 declareField(peripheralName=NVIC, registerName=IPR0, fieldName=PRI_N0, bitOffset=0, bitWidth=8, readAccess=true, writeAccess=true, fieldDesc="Sets or reads interrupt priorities")
