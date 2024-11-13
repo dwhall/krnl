@@ -1,58 +1,65 @@
 ##
-## RingQue: a fixed-size, type-generic circular queue
+## RingQue: a static sized, type-generic circular queue.
+##
+## This type is intended for use within kernels in deeply embedded systems.
+## We make the queue's size static, meaning it must be known at compile time
+## so that the queue can be allocated on the stack if desired.
 ##
 ## Copyright 2024 Dean Hall See LICENSE for details
 ##
 
-type
-  RingQueIndex = Natural
-  RingQue*[N: static RingQueIndex, T] = object
-    buf: array[N, T]
-    readIdx, writeIdx, count: RingQueIndex
+type RingQue*[N: static uint8, T] = object
+  buf: array[N, T]
+  count: range[0.uint8 .. N]
+  readIdx: range[0.uint8 .. N]
+  writeIdx: range[0.uint8 .. N]
 
-let qFullError = newException(IndexDefect, "Queue is full")
-let qEmptyError = newException(IndexDefect, "Queue is empty")
+let qFullIndexDefect = newException(IndexDefect, "Queue is full")
+let qEmptyIndexDefect = newException(IndexDefect, "Queue is empty")
 
-template cap*[N, T](self: RingQue[N, T]): RingQueIndex =
+func cap*[N, T](self: RingQue[N, T]): auto {.inline.} =
   ## Returns the capacity of the queue
   N
 
-template add*[N, T](self: var RingQue[N, T], item: T) =
-  ## Adds the item to the writeIdx position of the queue.
+proc add*[N, T](self: var RingQue[N, T], item: sink T) {.inline.} =
   ## Raises an IndexDefect if the queue is already full.
+  ## Adds the item to the writeIdx position of the queue,
+  ## then moves the writeIdx.
   if self.full:
-    raise qFullError
-  self.buf[self.writeIdx] = item
+    raise qFullIndexDefect
+  self.buf[self.writeIdx.int] = item
   if self.writeIdx == 0:
-    self.writeIdx = self.cap
+    self.writeIdx = N
   dec self.writeIdx
   inc self.count
 
-template pop*[N, T](self: var RingQue[N, T]): T =
-  ## Removes and returns the item at the readIdx position of the queue.
-  ## Raises an IndexDefect if the queue is empty.
+proc pop*[N, T](self: var RingQue[N, T]): owned T {.inline.} =
+  ## Raises an IndexDefect if the queue is already empty.
+  ## Removes and returns the item at the readIdx position of the queue,
+  ## then moves the readIdx.
   if self.count == 0:
-    raise qEmptyError
-  let result = self.buf[self.readIdx]
+    raise qEmptyIndexDefect
+  result = self.buf[self.readIdx.int]
   if self.readIdx == 0:
-    self.readIdx = self.cap
+    self.readIdx = N
   dec self.readIdx
   dec self.count
-  result
 
-template len*[N, T](self: RingQue[N, T]): RingQueIndex =
+func len*[N, T](self: RingQue[N, T]): auto {.inline.} =
   ## Returns the current number of items in the queue
   self.count
 
-template full*[N, T](self: RingQue[N, T]): bool =
-  ## Returns whether the buffer is full
-  self.count == self.cap
+func clear*[N, T](self: var RingQue[N, T]) {.inline.} =
+  ## Empties the circular queue
+  self.readIdx = 0
+  self.writeIdx = 0
+  self.count = 0
 
-when isMainModule:
-  var c: RingQue[32.RingQueIndex, int64]
-  c.add(3'i64)
-  c.add(2'i64)
-  c.add(1'i64)
-  discard c.pop()
-  echo $c.pop()
-  echo $c.cap
+func full*[N, T](self: RingQue[N, T]): bool {.inline.} =
+  ## Returns whether the buffer is completely full
+  self.count == N
+
+proc `=copy`[N, T](
+  dst: var RingQue[N, T], src: RingQue[N, T]
+) {.error: "RingQue[T] cannot be copied".}
+  ## Prevent a RingQue from being copied because they are owned by a Task
