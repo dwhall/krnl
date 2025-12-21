@@ -9,33 +9,34 @@
 ## How-To:
 ##   main =
 ##     # your BSP and app init stuff
-##
 ##     init()
-##
-##     # start each task
 ##     start()
-##     # ...
-##
+##     ...
 ##     run()
 ##
 
 import ./arm_cm
 import ./ringque
 
+#
+# sst.h
+#
 type
   TaskPrio* = uint8
   Signal* = int32
   Evt*[T] = object
     sig*: Signal
     val*: T
-  Handler[N, T] = proc(self: var Task[N, T], e: Evt[T])
-  Task*[N: static[int], T] = object
-    init*: Handler[N, T]
-    dispatch*: Handler[N, T]
-    qBuf*: RingQue[N, T]
+  Task*[N: static uint8, T] = object
+    # init*: proc(self: var Task[N, T], e: Evt[T])
+    # dispatch*: proc(self: var Task[N, T], e: Evt[T])
+    eventQue: RingQue[N, T]
     # ARM Cortex-M specific task attributes:
     nvicPendRegIdx: uint32
     nvicIrq: uint32
+
+type
+  Handler = proc(self: var Task, e: Evt)
 
   LockKey* = uint32
 
@@ -48,7 +49,7 @@ func CRIT_ENTRY*() {.inline.} =
 func CRIT_EXIT*() {.inline.} =
   asm "cpsie i"
 
-template TASK_PEND*(task: typed): untyped =
+func pend*[N, T](task: Task[N, T]) {.inline.} =
   ## Pend the Task after posting an event
   ## NOTE: executed inside SST critical section.
   let setPendingReg = case task.nvicPendRegIdx
@@ -56,24 +57,23 @@ template TASK_PEND*(task: typed): untyped =
     of 1: NVIC.ISPR1
     of 2: NVIC.ISPR2
     of 3: NVIC.ISPR3
-    else: assert(false) # if assert, declare more registers in arm_cm.nim
+    else: assert(false) # if assert, declare more ISPRx registers in arm_cm.nim
   setPendingReg.SETPEND = task.nvicIrq
-
 
 #
 # sst_port.c
 #
 
 # TBD: make this const (based on nvicPrioBits) and assert if it differs in init()
-var nvicPrioShift: uint32
+const nvicPrioShift: uint32 = nvicPrioBits.uint32
 
 proc init* =
   # Determine the number of NVIC priority bits by writing 0xFF to the
-  # NIVIC IP register for PendSV and then reading back the result,
+  # NVIC IP register for PendSV and then reading back the result,
   # which has only the implemented bits set.
   let tmp = SCB.SHPR3   # store original value
   SCB.SHPR3
-     .PRI_14(0xFF'u32)  # write to PendSV prio
+     .PRI_14(0xFF)      # write to PendSV prio
      .write()
   let prio = SCB.SHPR3.PRI_14.int # read back
   SCB.SHPR3 = tmp       # restore original value
@@ -82,26 +82,25 @@ proc init* =
   for n in 0 ..< 8:
     if (prio and (1 shl n)) != 0:
       break
-  nvicPrioShift = n
+  assert nvicPrioShift == n, "Calculated priority shift does not match declaration.  Does the compiler have the right MCU?"
 
   when fpuPresent:    # Configure the FPU
     SCB.FPCCR
-      .ASPEN(1'u32)   # enable automatic FPU state preservation
-      .LSPEN(1'u32)   # enable lazy stacking
+      .ASPEN(1)       # enable automatic FPU state preservation
+      .LSPEN(1)       # enable lazy stacking
       .write()
 
 proc start =
   ## Set the NVIC priority grouping to 0 (default)
-  #[ NOTE:
-  Typically the SST port to ARM Cortex-M should waste no NVIC priority
-  bits for grouping. This code ensures this setting, but priority
-  grouping can be still overridden by the application
-  after this procedure is called and before run() is called.
-  (SST calls this the onStart() callback)
-  ]#
+  # NOTE: Typically the SST port to ARM Cortex-M should waste no NVIC priority
+  # bits for grouping. This code ensures this setting, but priority
+  # grouping can be still overridden by the application
+  # after this procedure is called and before run() is called.
+  # (SST calls this the onStart() callback)
+  const writeKey = 0x05FA
   SCB.AIRCR
-     .PRIGROUP(0'u32)
-     .VECTKEY(0x05FA'u32) # write key
+     .PRIGROUP(0)
+     .VECTKEY(writeKey)
      .write()
 
 
@@ -115,7 +114,7 @@ proc setPrio(self: var Task, prio: TaskPrio) =
   let prioReg = case(self.nvicIrq shr 2)
     of 0: NVIC.IPR0
     else: NVIC.IPR1
-  let prioRegField = case(self.nvicIrq and 0b11'u32)
+  let prioRegField = case(self.nvicIrq and 0b11)
     of 0: prioReg.PRI_N0
     of 1: prioReg.PRI_N1
     of 2: prioReg.PRI_N2
@@ -127,7 +126,7 @@ proc setPrio(self: var Task, prio: TaskPrio) =
     of 1: NVIC.ISER1
     of 2: NVIC.ISER2
     else: NVIC.ISER3
-  let irqBit = 1'u32 shl (self.nvicIrq and 0x1F'u32)
+  let irqBit = 1 shl (self.nvicIrq and 0x1F)
 
   CRIT_ENTRY()
 
@@ -148,8 +147,8 @@ proc activate*(self: var Task) =
 
   CRIT_ENTRY()
   # Get the event out of the queue
-  let e = self.qBuf.pop()
-  if self.qBuf.len() > 0:
+  let e = self.eventQue.pop()
+  if self.eventQue.len() > 0:
     # select the set-pending register
     let pendReg = case self.nvicPendRegIdx
       of 0: NVIC.ISPR0
@@ -171,17 +170,15 @@ func setIRQ*(self: var Task, irq: uint8) =
 
 
 proc lock*(ceiling: TaskPrio): LockKey =
-  let nvicPrio = ((0xFF'u32 shr nvicPrioShift) + 1'u32 - ceiling.uint32) shl nvicPrioShift
+  let nvicPrio: uint8 = ((0xFF'u8 shr nvicPrioShift) + 1'u8 - ceiling.uint8) shl nvicPrioShift
   {.emit: ["asm (\"mrs %0, BASEPRI\"\n\t: \"=r\" (", result, ")\n\t:: );\n"].}
   if result > nvicPrio:
     {.emit: ["cpsid i\n\tmsr BASEPRI, %0\n\tcpsie i\n\t:: \"r\" (", nvicPrio, ") :\n"].}
 
 
 proc unlock*(lockKey: LockKey) =
-  #[ NOTE:
-  ARMv7-M+ support the BASEPRI register and the selective SST scheduler
-  unlocking is implemented by restoring BASEPRI to the lockKey level.
-  ]#
+  # NOTE: ARMv7-M+ support the BASEPRI register and the selective SST scheduler
+  # unlocking is implemented by restoring BASEPRI to the lockKey level.
   {.emit: ["msr BASEPRI, %0\n\t:: \"r\" (", lockKey, ")\n\t:\n"].}
 
 
@@ -195,24 +192,22 @@ func run*(appOnStart: proc) {.noreturn.} =
   while true:
     asm "__wfi"
 
-func ctor*[N, T](self: var Task[N, T], init: Handler, dispatch: Handler) =
-  self.init = init
-  self.dispatch = dispatch
+# func newTask*[T](eventQue: ptr RingQue, init: Handler, dispatch: Handler): Task[N, T] =
+#   result = Task[N, T]()
+#   result.eventQue = eventQue
+#   result.init = init
+#  result.dispatch = dispatch
 
-func start[N, T](self: var Task[N, T], prio: TaskPrio, qBuf: RingQue[N, T], ie: Evt) =
+func start*[N, T](self: var Task[N, T], prio: TaskPrio, initEvt: Evt) =
   # DBC_REQUIRE(200 prio > 0) ...
-  self.qBuf = qBuf
   self.setPrio(prio)
-  # Initialize this task with the initialization event
-  self.init(ie)
+  self.init(initEvt)
 
 func post*[N, T](self: var Task[N, T], e: Evt[T]) =
   # DBC_REQUIRE(300, self.nUsed <= self.end)
   CRIT_ENTRY()
-
-  self.qBuf.add(e)
-
-  TASK_PEND(self)
+  self.eventQue.add(e)
+  self.pend()
   CRIT_EXIT()
 
 
@@ -221,18 +216,16 @@ func post*[N, T](self: var Task[N, T], e: Evt[T]) =
 #
 
 type
-  Tctr = uint16
+  TCtr = uint16
 
-  TimeEvt*[N: static[int], T] = object
+  TimeEvt*[N: static uint8, T] = ref object
     super: Evt[T]
-    next: ref TimeEvt[N, T]
-    task: ref Task[N, T]
-    ctr: Tctr
-    interval: Tctr
+    next: TimeEvt[N, T]
+    task: Task[N, T]
+    ctr: TCtr
+    interval: TCtr
 
-  TimeEvtRef[N: static[int], T] = ref TimeEvt[N, T]
-
-proc newTimeEvt*[N, T](head: TimeEvtRef[N, T], sig: Signal, task: Task[N, T]): TimeEvtRef[N, T] =
+proc newTimeEvt*[N, T](head: TimeEvt[N, T], sig: Signal, task: Task[N, T]): TimeEvt[N, T] =
   # f.k.a. ctor
   ## Inserts a new TimeEvt at the head of the linked list
   # implicit allocation of TimeEvt node in variable, result
@@ -241,7 +234,7 @@ proc newTimeEvt*[N, T](head: TimeEvtRef[N, T], sig: Signal, task: Task[N, T]): T
   result.next = head
   head = result
 
-func arm*[N, T](self: var TimeEvt[N, T], ctr: Tctr, interval: Tctr = 0) =
+func arm*[N, T](self: var TimeEvt[N, T], ctr: TCtr, interval: TCtr = 0) =
   ## Arms the TimeEvt with the given counter value
   ## The interval argument defaults to zero, which arms a one-shot timer.
   ## Set interval to non-zero for a repeating timer.

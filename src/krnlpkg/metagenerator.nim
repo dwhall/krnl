@@ -101,7 +101,7 @@ template declareRegister*(
   ## The `PERIPH_REGVal` type does NOT need to be public.
   ## The programmer receives a value of this type by reading
   ## the register: `var v = PERIPH.REG`
-  type `peripheralName _ registerName Val` {.inject.} = `peripheralName _ derivedFrom Val`
+  type `peripheralName _ registerName Val`* {.inject.} = `peripheralName _ derivedFrom Val`
   declareRegisterBody(peripheralName, registerName, addressOffset, readAccess, writeAccess, registerDesc)
 
 template declareRegister*(
@@ -117,7 +117,7 @@ template declareRegister*(
   ## The `PERIPH_REGVal` type does NOT need to be public.
   ## The programmer receives a value of this type by reading
   ## the register: `var v = PERIPH.REG`
-  type `peripheralName _ registerName Val` {.inject.} = distinct RegisterVal
+  type `peripheralName _ registerName Val`* {.inject.} = distinct RegisterVal
   declareRegisterBody(peripheralName, registerName, addressOffset, readAccess, writeAccess, registerDesc)
 
 func getField[T](regVal: T, bitOffset: static int, bitWidth: static int): T {.inline.} =

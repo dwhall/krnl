@@ -8,14 +8,20 @@
 ## Copyright 2024 Dean Hall See LICENSE for details
 ##
 
-type RingQue*[N: static uint8, T] = object
-  buf: array[N, T]
-  count: range[0.uint8 .. N]
-  readIdx: range[0.uint8 .. N]
-  writeIdx: range[0.uint8 .. N]
+type
+  RingQueIndexType = uint8
+  RingQue*[N: static RingQueIndexType, T] = object
+    buf: array[N, T]
+    count: range[0.RingQueIndexType .. N]
+    readIdx: range[0.RingQueIndexType .. N]
+    writeIdx: range[0.RingQueIndexType .. N]
 
 let qFullIndexDefect = newException(IndexDefect, "Queue is full")
 let qEmptyIndexDefect = newException(IndexDefect, "Queue is empty")
+
+proc newRingQue*(n: static RingQueIndexType, t: typedesc): auto =
+  ## Creates a new RingQue of size n and type t
+  RingQue[n, t]()
 
 func cap*[N, T](self: RingQue[N, T]): auto {.inline.} =
   ## Returns the capacity of the queue
@@ -61,5 +67,5 @@ func full*[N, T](self: RingQue[N, T]): bool {.inline.} =
 
 proc `=copy`[N, T](
   dst: var RingQue[N, T], src: RingQue[N, T]
-) {.error: "RingQue[T] cannot be copied".}
+) {.error: "RingQue is owned and cannot be copied".}
   ## Prevent a RingQue from being copied because they are owned by a Task

@@ -1,3 +1,5 @@
+#!fmt: off
+
 # Package
 
 version       = "0.1.0"

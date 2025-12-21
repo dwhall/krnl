@@ -86,3 +86,6 @@ suite "test RingQue, the circular queue module":
     var q2 = RingQue[4'u8, int]()
     check not compiles(q2 = q1)
     discard q2
+
+let q = newRingQue(4, int)
+echo q
