@@ -1,22 +1,18 @@
 # KRNL
 
-A minimalist event-based microkernel with memory protection for ARM Cortex-M devices.
+A minimalist microkernel
+for ARM Cortex-M devices with an MPU
+written in [Nim](https://nim-lang.org/)
 
-A translation of Miro Samek's QPC and
-[Super Simple Tasker (SST)](https://github.com/QuantumLeaps/Super-Simple-Tasker)
-rewritten in the Nim language.
+Borrows on ideas from:
+* Miro Samek's [Super Simple Tasker (SST)](https://github.com/QuantumLeaps/Super-Simple-Tasker)
+* [seL4](https://sel4.systems/About/)
 
-Port strictly to the ARM Cortex-M devices that have a Memory Protection Unit (MPU).
-* Tasks must be assigned to a protected memory context
+Things that belong in the microkernel:
+* Memory management, protection and DMA
+* Interrupt handling
+* Event dispatch to Tasks
 
 Things to keep OUT of the microkernel:
-
 * Messages - Variable length, application-level messages: (time, src, dst, payld), any bus
 * Device Drivers that do NOT directly support microkernel objects.
-
-## References
-
-ARM Cortex-M SVD files:
-    https://github.com/ARM-software/CMSIS_5/tree/develop/Device/ARM/SVD
-Patched STM32 SVD files:
-    https://github.com/tinygo-org/stm32-svd
