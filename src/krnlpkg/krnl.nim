@@ -15,8 +15,8 @@
 ##     run()
 ##
 
-import ./arm_cm
-import ./ringque
+import cm4f/[fp, nvic, scb]
+import ringque
 
 #
 # sst.h
@@ -44,19 +44,19 @@ type
 # sst_port.h
 #
 func CRIT_ENTRY*() {.inline.} =
-  asm "cpsid i"
+  disableIrq()
 
 func CRIT_EXIT*() {.inline.} =
-  asm "cpsie i"
+  enableIrq()
 
 func pend*[N, T](task: Task[N, T]) {.inline.} =
   ## Pend the Task after posting an event
   ## NOTE: executed inside SST critical section.
   let setPendingReg = case task.nvicPendRegIdx
-    of 0: NVIC.ISPR0
-    of 1: NVIC.ISPR1
-    of 2: NVIC.ISPR2
-    of 3: NVIC.ISPR3
+    of 0: NVIC.NVIC_ISPR_0
+    of 1: NVIC.NVIC_ISPR_1
+    of 2: NVIC.NVIC_ISPR_2
+    of 3: NVIC.NVIC_ISPR_3
     else: assert(false) # if assert, declare more ISPRx registers in arm_cm.nim
   setPendingReg.SETPEND = task.nvicIrq
 
@@ -85,7 +85,7 @@ proc init* =
   assert nvicPrioShift == n, "Calculated priority shift does not match declaration.  Does the compiler have the right MCU?"
 
   when fpuPresent:    # Configure the FPU
-    SCB.FPCCR
+    FP.FPCCR
       .ASPEN(1)       # enable automatic FPU state preservation
       .LSPEN(1)       # enable lazy stacking
       .write()
@@ -100,7 +100,7 @@ proc start =
   const writeKey = 0x05FA
   SCB.AIRCR
      .PRIGROUP(0)
-     .VECTKEY(writeKey)
+# FIXME:     .VECTKEY(writeKey)
      .write()
 
 
@@ -112,8 +112,8 @@ proc setPrio(self: var Task, prio: TaskPrio) =
   let nvic_prio = ((0xFF'u shr nvicPrioShift) + 1'u - prio) shl nvicPrioShift
   assert((self.nvicIrq shr 2) <= 1) # if asserts, declare more registers in arm_cm.nim and use them here (maybe make an array)
   let prioReg = case(self.nvicIrq shr 2)
-    of 0: NVIC.IPR0
-    else: NVIC.IPR1
+    of 0: NVIC.NVIC_IPR_0
+    else: NVIC.NVIC_IPR_1
   let prioRegField = case(self.nvicIrq and 0b11)
     of 0: prioReg.PRI_N0
     of 1: prioReg.PRI_N1
@@ -122,10 +122,10 @@ proc setPrio(self: var Task, prio: TaskPrio) =
 
   assert((self.nvicIrq shr 5) <= 3) # if asserts, declare more registers in arm_cm.nim and use them here (maybe make an array)
   let irqReg = case (self.nvicIrq shr 5)
-    of 0: NVIC.ISER0
-    of 1: NVIC.ISER1
-    of 2: NVIC.ISER2
-    else: NVIC.ISER3
+    of 0: NVIC.NVIC_ISER_0
+    of 1: NVIC.NVIC_ISER_1
+    of 2: NVIC.NVIC_ISER_2
+    else: NVIC.NVIC_ISER_3
   let irqBit = 1 shl (self.nvicIrq and 0x1F)
 
   CRIT_ENTRY()
@@ -134,7 +134,8 @@ proc setPrio(self: var Task, prio: TaskPrio) =
   prioRegField = nvic_prio
 
   # Enable the IRQ associated with the Task
-  irqReg.SETENA = irqReg.SETENA.uint32 or irqBit
+  # irqReg.SETENA = irqReg.SETENA.uint32 or irqBit
+  irqReg = irqReg.uint32 or irqBit # TODO: check if this resolves the above line
 
   CRIT_EXIT()
 
@@ -151,13 +152,14 @@ proc activate*(self: var Task) =
   if self.eventQue.len() > 0:
     # select the set-pending register
     let pendReg = case self.nvicPendRegIdx
-      of 0: NVIC.ISPR0
-      of 1: NVIC.ISPR1
-      of 2: NVIC.ISPR2
-      of 3: NVIC.ISPR3
+      of 0: NVIC.NVIC_ISPR_0
+      of 1: NVIC.NVIC_ISPR_1
+      of 2: NVIC.NVIC_ISPR_2
+      of 3: NVIC.NVIC_ISPR_3
       else: assert(false) # if assert, declare more registers in arm_cm.nim
     # pend the associated IRQ
-    pendReg.SETPEND = self.nvicIrq
+    # pendReg.SETPEND = self.nvicIrq
+    pendReg = self.nvicIrq # TODO: check if this resolves the above line
 
   CRIT_EXIT()
 
@@ -171,15 +173,17 @@ func setIRQ*(self: var Task, irq: uint8) =
 
 proc lock*(ceiling: TaskPrio): LockKey =
   let nvicPrio: uint8 = ((0xFF'u8 shr nvicPrioShift) + 1'u8 - ceiling.uint8) shl nvicPrioShift
-  {.emit: ["asm (\"mrs %0, BASEPRI\"\n\t: \"=r\" (", result, ")\n\t:: );\n"].}
+  result = BASEPRI.read()
   if result > nvicPrio:
-    {.emit: ["cpsid i\n\tmsr BASEPRI, %0\n\tcpsie i\n\t:: \"r\" (", nvicPrio, ") :\n"].}
+    disableIrq()
+    BASEPRI.write(nvicPrio)
+    enableIrq()
 
 
 proc unlock*(lockKey: LockKey) =
   # NOTE: ARMv7-M+ support the BASEPRI register and the selective SST scheduler
   # unlocking is implemented by restoring BASEPRI to the lockKey level.
-  {.emit: ["msr BASEPRI, %0\n\t:: \"r\" (", lockKey, ")\n\t:\n"].}
+  BASEPRI.write(lockKey)
 
 
 #
@@ -190,7 +194,7 @@ func run*(appOnStart: proc) {.noreturn.} =
   start()
   appOnStart()
   while true:
-    asm "__wfi"
+    WFI()
 
 # func newTask*[T](eventQue: ptr RingQue, init: Handler, dispatch: Handler): Task[N, T] =
 #   result = Task[N, T]()
