@@ -17,10 +17,10 @@ type
 
 const nvicPrioShift = cpu.nvicPrioBits.uint32
 
-template CRIT_ENTER*() =
+template CRIT_ENTER() =
   disableIrq()
 
-template CRIT_EXIT*() =
+template CRIT_EXIT() =
   enableIrq()
 
 converter toNvicPrio(prio: TaskPrio): NvicPrio =
@@ -28,11 +28,14 @@ converter toNvicPrio(prio: TaskPrio): NvicPrio =
   ## to NvicPrio where 0 is the highest priority
   ((0xFF'u32 shr nvicPrioShift) + 1'u32 - prio) shl nvicPrioShift
 
+# Forward declarations
+proc setPrio(self: var Task, prio: TaskPrio)
+
 proc init* =
   ## Validates the NVIC's priority configuration
   ## and configures the core's floating-point unit
 
-  # Determine the number of NVIC priority bits by writing 0xFF to the
+  # Determine the number of NVIC priority bits by writing all ones to the
   # NVIC IP register for PendSV and then reading back the result,
   # which has only the implemented bits set.
   let tmp = SCB.SHPR3   # store original value
@@ -41,30 +44,31 @@ proc init* =
      .write()
   let prio = SCB.SHPR3.PRI_14.uint8 # read back implemented prio bits
   SCB.SHPR3 = tmp       # restore original value
-
   # prio is an 8-bit field with the implemented bits set and packed toward the MSb.
   # nvicPrioShift is the offset to the least significant set bit of prio.
   let n = firstSetBit(prio) - 1
+  # If you reach this assert, either you used the wrong SVD file for your MCU
+  # or the cpu/nvicPrioBits value in your SVD file is incorrect
   assert nvicPrioShift == n, "Calculated priority shift does not match declaration from SVD."
 
   when cpu.fpuPresent:  # Configure the floating-point unit
     FP.FPCCR
-      .ASPEN(1)       # enable automatic FPU state preservation
-      .LSPEN(1)       # enable lazy stacking
+      .ASPEN(1) # enable automatic FPU state preservation
+      .LSPEN(1) # enable lazy stacking
       .write()
 
+func startTask*[N, T](self: var Task[N, T], prio: TaskPrio, initEvnt: Evnt) =
+  # TODO: init priority queue?
+  self.setPrio(prio)
+  self.init(initEvnt)
+
 proc setPrio(self: var Task, prio: TaskPrio) =
-  ## Sets the NVIC priority for this task's interrupt
-  ## and enables the interrupt
+  ## Sets the this task's interrupt's priority
+  ## and enables the interrupt in the NVIC
   assert self.nviqIrq > 0'u8
   assert prio <= (0xFF'u8 shr nvicPrioShift)
 
-  # Convert the Task priority (1,2,..) to NVIC priority...
-  let nvicPrio: NvicPrio = prio
-
   let (irqDiv4, irqMod4) = divmod(self.nviqIrq, 4'u8)
-
-  # Select the interrupt priority register to be used in the critical section below
   let prioReg = case irqDiv4
     of 0: NVIC.NVIC_IPR_0
     of 1: NVIC.NVIC_IPR_1
@@ -88,8 +92,6 @@ proc setPrio(self: var Task, prio: TaskPrio) =
 
   let (irqDiv32, irqMod32) = divmod(self.nviqIrq, 32'u8)
   let irqBitf = 1'u32 shl irqMod32
-
-  # Select the interrupt enable register to be used in the critical section below
   let iserReg = case irqDiv32
     of 0: NVIC.NVIC_ISER_0
     of 1: NVIC.NVIC_ISER_1
@@ -99,50 +101,23 @@ proc setPrio(self: var Task, prio: TaskPrio) =
     # If this asserts, expand the case-of table
     else: assert(false)
 
+  let nvicPrio: NvicPrio = prio # implicitly calls the converter
   CRIT_ENTER()
-
   # Set the priority of the interrupt associated with this Task
   case irqMod4
     of 0: prioReg.PRI_N0(nvicPrio).write()
     of 1: prioReg.PRI_N1(nvicPrio).write()
     of 2: prioReg.PRI_N2(nvicPrio).write()
     of 3: prioReg.PRI_N3(nvicPrio).write()
-
   # Enable the interrupt associated with this Task
   iserReg = irqBitf
-
   CRIT_EXIT()
 
   # Store these values for later use
   self.irqDiv32 = irqDiv32
   self.irqBitf = irqBitf
 
-template pend[N, T](self: Task[N, T]) =
-  ## Schedules the task for execution by pending its interrupt
-  # Assumes the caller is in a critical section
-  let pendReg = case self.irqDiv32
-    of 0: NVIC.NVIC_ISPR_0
-    of 1: NVIC.NVIC_ISPR_1
-    of 2: NVIC.NVIC_ISPR_2
-    of 3: NVIC.NVIC_ISPR_3
-    else: assert(false) # if assert, declare more registers in arm_cm.nim
-  pendReg = self.irqBitf
-
-proc activate*(self: var Task) =
-  assert self.eventQue.len() > 0'u8
-  CRIT_ENTER()
-  let e = self.eventQue.pop()
-  # If the queue is not empty after popping,
-  # schedule the task for execution again
-  if self.eventQue.len() > 0:
-    self.pend()
-  CRIT_EXIT()
-  self.dispatch(e)  # task's event handler
-
-func setIrq*(self: var Task, irq: uint8) =
-  self.nviqIrq = irq
-
-func run*(appOnStart: proc) {.noreturn.} =
+func runForever*(appOnStart: proc) {.noreturn.} =
   const writeKey = 0x05FA
   SCB.AIRCR
      .VECTKEY(writeKey)
@@ -154,37 +129,25 @@ func run*(appOnStart: proc) {.noreturn.} =
   while true:
     WFI()
 
-func post*[N, T](self: var Task[N, T], e: Evnt[T]) =
-  ## Posts an event to the task and schedules the task for execution
-  CRIT_ENTER()
-  self.eventQue.add(e)
-  self.pend()
-  CRIT_EXIT()
+####
 
-# I don't have a plan for these two procs
-proc lock*(ceiling: TaskPrio): LockKey =
-  let nvicPrio: NvicPrio = ceiling
-  result = BASEPRI.read()
-  if result > nvicPrio:
-    CRIT_ENTER()
-    BASEPRI.write(nvicPrio)
-    CRIT_EXIT()
-
-proc unlock*(lockKey: LockKey) =
-  # NOTE: ARMv7-M+ support the BASEPRI register and the selective SST scheduler
-  # unlocking is implemented by restoring BASEPRI to the lockKey level.
-  BASEPRI.write(lockKey)
-
-
+# I don't have a plan for these two procs yet
+#
+# proc lock*(ceiling: TaskPrio): LockKey =
+#   let nvicPrio: NvicPrio = ceiling
+#   result = BASEPRI.read()
+#   if result > nvicPrio:
+#     CRIT_ENTER()
+#     BASEPRI.write(nvicPrio)
+#     CRIT_EXIT()
+#
+# proc unlock*(lockKey: LockKey) =
+#   # NOTE: ARMv7-M+ support the BASEPRI register and the selective SST scheduler
+#   # unlocking is implemented by restoring BASEPRI to the lockKey level.
+#   BASEPRI.write(lockKey)
+#
 # func newTask*[T](eventQue: ptr RingQue, init: Handler, dispatch: Handler): Task[N, T] =
 #   result = Task[N, T]()
 #   result.eventQue = eventQue
 #   result.init = init
 #  result.dispatch = dispatch
-
-# SST_Task_start
-func startTask*[N, T](self: var Task[N, T], prio: TaskPrio, initEvnt: Evnt) =
-  # TODO: init priority queue
-  self.setPrio(prio)
-  self.initTask(initEvnt)
-
