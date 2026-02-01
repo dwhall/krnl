@@ -7,6 +7,6 @@ type
     init*: proc(self: var Task[N, T], e: Evnt[T])
     dispatch*: proc(self: var Task[N, T], e: Evnt[T])
     eventQue*: RingQue[N, T]
-    nviqIrq*: uint8
+    irqNum*: uint8
   TaskPrio* = uint8   # 0 is the lowest priority
   NvicPrio* = uint8   # 0 is the highest priority

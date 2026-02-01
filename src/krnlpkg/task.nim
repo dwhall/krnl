@@ -16,7 +16,7 @@ template schedule[N, T](self: Task[N, T]) =
   ## Schedules the task for execution by pending its interrupt in the NVIC
   # NOTE: The caller MUST be in a critical section in privileged mode
   SIG.STIR
-     .INTID(self.nviqIrq)
+     .INTID(self.irqNum)
      .write()
 
 proc activate*(self: var Task) =
@@ -43,4 +43,4 @@ func post*[N, T](self: var Task[N, T], e: Evnt[T]) =
   CRIT_EXIT()
 
 func setIrq*(self: var Task, irq: uint8) =
-  self.nviqIrq = irq
+  self.irqNum = irq

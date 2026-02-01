@@ -65,10 +65,10 @@ func startTask*[N, T](self: var Task[N, T], prio: TaskPrio, initEvnt: Evnt) =
 proc setPrio(self: var Task, prio: TaskPrio) =
   ## Sets the this task's interrupt's priority
   ## and enables the interrupt in the NVIC
-  assert self.nviqIrq > 0'u8
+  assert self.irqNum > 0'u8
   assert prio <= (0xFF'u8 shr nvicPrioShift)
 
-  let (irqDiv4, irqMod4) = divmod(self.nviqIrq, 4'u8)
+  let (irqDiv4, irqMod4) = divmod(self.irqNum, 4'u8)
   let prioReg = case irqDiv4
     of 0: NVIC.NVIC_IPR_0
     of 1: NVIC.NVIC_IPR_1
@@ -90,7 +90,7 @@ proc setPrio(self: var Task, prio: TaskPrio) =
     # If this asserts, expand the case-of table
     else: assert(false)
 
-  let (irqDiv32, irqMod32) = divmod(self.nviqIrq, 32'u8)
+  let (irqDiv32, irqMod32) = divmod(self.irqNum, 32'u8)
   let irqBitf = 1'u32 shl irqMod32
   let iserReg = case irqDiv32
     of 0: NVIC.NVIC_ISER_0
