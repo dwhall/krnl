@@ -113,10 +113,6 @@ proc setPrio(self: var Task, prio: TaskPrio) =
   iserReg = irqBitf
   CRIT_EXIT()
 
-  # Store these values for later use
-  self.irqDiv32 = irqDiv32
-  self.irqBitf = irqBitf
-
 func runForever*(appOnStart: proc) {.noreturn.} =
   const writeKey = 0x05FA
   SCB.AIRCR

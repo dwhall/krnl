@@ -3,7 +3,7 @@
 ## KRNL task operations
 ##
 
-import cm4f/[core, nvic]
+import cm4f/[core, sig]
 import types
 
 template CRIT_ENTER() =
@@ -12,36 +12,34 @@ template CRIT_ENTER() =
 template CRIT_EXIT() =
   enableIrq()
 
-template pend[N, T](self: Task[N, T]) =
-  ## Schedules the task for execution by pending its interrupt
-  # NOTE: The caller MUST be in a critical section
-  let pendReg = case self.irqDiv32
-    of 0: NVIC.NVIC_ISPR_0
-    of 1: NVIC.NVIC_ISPR_1
-    of 2: NVIC.NVIC_ISPR_2
-    of 3: NVIC.NVIC_ISPR_3
-    else: assert(false) # if assert, declare more registers in arm_cm.nim
-  pendReg = self.irqBitf
+template schedule[N, T](self: Task[N, T]) =
+  ## Schedules the task for execution by pending its interrupt in the NVIC
+  # NOTE: The caller MUST be in a critical section in privileged mode
+  SIG.STIR
+     .INTID(self.nviqIrq)
+     .write()
 
 proc activate*(self: var Task) =
   ## Pops an event within a critical section and calls the task's event handler.
   ## If the task's event queue is not empty after popping,
   ## the task is scheduled for execution again.
   # NOTE: MUST only be called when the task has an event in its queue
+  # NOTE: The caller MUST be in privileged mode
   assert self.eventQue.len() > 0'u8
   CRIT_ENTER()
   let e = self.eventQue.pop()
   if self.eventQue.len() > 0:
-    self.pend()
+    self.schedule()
   CRIT_EXIT()
   self.dispatch(e)  # task's event handler
 
 func post*[N, T](self: var Task[N, T], e: Evnt[T]) =
   ## Posts an event to the task and schedules the task for execution
   ## within a critical section
+  # NOTE: The caller MUST be in privileged mode
   CRIT_ENTER()
   self.eventQue.add(e)
-  self.pend()
+  self.schedule()
   CRIT_EXIT()
 
 func setIrq*(self: var Task, irq: uint8) =
