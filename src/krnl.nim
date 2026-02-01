@@ -2,7 +2,7 @@
 # uses this file as the main entry point of the application.
 
 import krnlpkg/krnl
-export Signal, TaskPrio, Evt, Task, LockKey
+export Signal, TaskPrio, Evnt, Task
 
 import krnlpkg/ringque
-export RingQue
+export ringque

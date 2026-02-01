@@ -1,73 +1,37 @@
 #!fmt: off
-##
-## KRNL: an event-based microkernel with memory protection for ARM Cortex-M devices
-## This is a re-write of Miro Samek's Super-Simple-Tasker in the language, Nim
-##   https://github.com/QuantumLeaps/Super-Simple-Tasker
-##
 ## Copyright 2024 Dean Hall See LICENSE for details
 ##
-## How-To:
-##   main =
-##     # your BSP and app init stuff
-##     init()
-##     start()
-##     ...
-##     run()
+## KRNL: an event-based microkernel with memory protection for ARM Cortex-M devices
+## This takes ideas from Miro Samek's Super-Simple-Tasker and QPc
+##   https://github.com/QuantumLeaps/
 ##
 
-import cm4f/[fp, nvic, scb]
-import ringque
-
-#
-# sst.h
-#
-type
-  TaskPrio* = uint8
-  Signal* = int32
-  Evt*[T] = object
-    sig*: Signal
-    val*: T
-  Task*[N: static uint8, T] = object
-    # init*: proc(self: var Task[N, T], e: Evt[T])
-    # dispatch*: proc(self: var Task[N, T], e: Evt[T])
-    eventQue: RingQue[N, T]
-    # ARM Cortex-M specific task attributes:
-    nvicPendRegIdx: uint32
-    nvicIrq: uint32
+import std/[bitops, math]
+import cm4f/[core, fp, nvic, scb]
+import nrf52840/device
+import ringque, types
 
 type
-  Handler = proc(self: var Task, e: Evt)
+  Handler = proc(self: var Task, e: Evnt)
+  LockKey = uint32
 
-  LockKey* = uint32
+const nvicPrioShift = cpu.nvicPrioBits.uint32
 
-#
-# sst_port.h
-#
-func CRIT_ENTRY*() {.inline.} =
+template CRIT_ENTER*() =
   disableIrq()
 
-func CRIT_EXIT*() {.inline.} =
+template CRIT_EXIT*() =
   enableIrq()
 
-func pend*[N, T](task: Task[N, T]) {.inline.} =
-  ## Pend the Task after posting an event
-  ## NOTE: executed inside SST critical section.
-  let setPendingReg = case task.nvicPendRegIdx
-    of 0: NVIC.NVIC_ISPR_0
-    of 1: NVIC.NVIC_ISPR_1
-    of 2: NVIC.NVIC_ISPR_2
-    of 3: NVIC.NVIC_ISPR_3
-    else: assert(false) # if assert, declare more ISPRx registers in arm_cm.nim
-  setPendingReg.SETPEND = task.nvicIrq
-
-#
-# sst_port.c
-#
-
-# TBD: make this const (based on nvicPrioBits) and assert if it differs in init()
-const nvicPrioShift: uint32 = nvicPrioBits.uint32
+converter toNvicPrio(prio: TaskPrio): NvicPrio =
+  ## Converts TaskPrio where 0 is the lowest priority
+  ## to NvicPrio where 0 is the highest priority
+  ((0xFF'u32 shr nvicPrioShift) + 1'u32 - prio) shl nvicPrioShift
 
 proc init* =
+  ## Validates the NVIC's priority configuration
+  ## and configures the core's floating-point unit
+
   # Determine the number of NVIC priority bits by writing 0xFF to the
   # NVIC IP register for PendSV and then reading back the result,
   # which has only the implemented bits set.
@@ -75,110 +39,136 @@ proc init* =
   SCB.SHPR3
      .PRI_14(0xFF)      # write to PendSV prio
      .write()
-  let prio = SCB.SHPR3.PRI_14.int # read back
+  let prio = SCB.SHPR3.PRI_14.uint8 # read back implemented prio bits
   SCB.SHPR3 = tmp       # restore original value
 
-  var n: uint32
-  for n in 0 ..< 8:
-    if (prio and (1 shl n)) != 0:
-      break
-  assert nvicPrioShift == n, "Calculated priority shift does not match declaration.  Does the compiler have the right MCU?"
+  # prio is an 8-bit field with the implemented bits set and packed toward the MSb.
+  # nvicPrioShift is the offset to the least significant set bit of prio.
+  let n = firstSetBit(prio) - 1
+  assert nvicPrioShift == n, "Calculated priority shift does not match declaration from SVD."
 
-  when fpuPresent:    # Configure the FPU
+  when cpu.fpuPresent:  # Configure the floating-point unit
     FP.FPCCR
       .ASPEN(1)       # enable automatic FPU state preservation
       .LSPEN(1)       # enable lazy stacking
       .write()
 
-proc start =
-  ## Set the NVIC priority grouping to 0 (default)
-  # NOTE: Typically the SST port to ARM Cortex-M should waste no NVIC priority
-  # bits for grouping. This code ensures this setting, but priority
-  # grouping can be still overridden by the application
-  # after this procedure is called and before run() is called.
-  # (SST calls this the onStart() callback)
-  const writeKey = 0x05FA
-  SCB.AIRCR
-     .PRIGROUP(0)
-# FIXME:     .VECTKEY(writeKey)
-     .write()
-
-
 proc setPrio(self: var Task, prio: TaskPrio) =
-  assert self.nvicIrq > 0                   # DBC_REQUIRE(200
-  assert prio <= (0xFF'u shr nvicPrioShift) # DBC_REQUIRE(201
+  ## Sets the NVIC priority for this task's interrupt
+  ## and enables the interrupt
+  assert self.nviqIrq > 0'u8
+  assert prio <= (0xFF'u8 shr nvicPrioShift)
 
   # Convert the Task priority (1,2,..) to NVIC priority...
-  let nvic_prio = ((0xFF'u shr nvicPrioShift) + 1'u - prio) shl nvicPrioShift
-  assert((self.nvicIrq shr 2) <= 1) # if asserts, declare more registers in arm_cm.nim and use them here (maybe make an array)
-  let prioReg = case(self.nvicIrq shr 2)
-    of 0: NVIC.NVIC_IPR_0
-    else: NVIC.NVIC_IPR_1
-  let prioRegField = case(self.nvicIrq and 0b11)
-    of 0: prioReg.PRI_N0
-    of 1: prioReg.PRI_N1
-    of 2: prioReg.PRI_N2
-    of 3: prioReg.PRI_N3
+  let nvicPrio: NvicPrio = prio
 
-  assert((self.nvicIrq shr 5) <= 3) # if asserts, declare more registers in arm_cm.nim and use them here (maybe make an array)
-  let irqReg = case (self.nvicIrq shr 5)
+  let (irqDiv4, irqMod4) = divmod(self.nviqIrq, 4'u8)
+
+  # Select the interrupt priority register to be used in the critical section below
+  let prioReg = case irqDiv4
+    of 0: NVIC.NVIC_IPR_0
+    of 1: NVIC.NVIC_IPR_1
+    of 2: NVIC.NVIC_IPR_2
+    of 3: NVIC.NVIC_IPR_3
+    of 4: NVIC.NVIC_IPR_4
+    of 5: NVIC.NVIC_IPR_5
+    of 6: NVIC.NVIC_IPR_6
+    of 7: NVIC.NVIC_IPR_7
+    of 8: NVIC.NVIC_IPR_8
+    of 9: NVIC.NVIC_IPR_9
+    of 10: NVIC.NVIC_IPR_10
+    of 11: NVIC.NVIC_IPR_11
+    of 12: NVIC.NVIC_IPR_12
+    of 13: NVIC.NVIC_IPR_13
+    of 14: NVIC.NVIC_IPR_14
+    of 15: NVIC.NVIC_IPR_15
+    # This will only assert when the MCU has more than 128 interrupts.
+    # If this asserts, expand the case-of table
+    else: assert(false)
+
+  let (irqDiv32, irqMod32) = divmod(self.nviqIrq, 32'u8)
+  let irqBitf = 1'u32 shl irqMod32
+
+  # Select the interrupt enable register to be used in the critical section below
+  let iserReg = case irqDiv32
     of 0: NVIC.NVIC_ISER_0
     of 1: NVIC.NVIC_ISER_1
     of 2: NVIC.NVIC_ISER_2
-    else: NVIC.NVIC_ISER_3
-  let irqBit = 1 shl (self.nvicIrq and 0x1F)
+    of 3: NVIC.NVIC_ISER_3
+    # This will only assert when the MCU has more than 128 interrupts.
+    # If this asserts, expand the case-of table
+    else: assert(false)
 
-  CRIT_ENTRY()
+  CRIT_ENTER()
 
-  # Set the Task priority of the associated IRQ
-  prioRegField = nvic_prio
+  # Set the priority of the interrupt associated with this Task
+  case irqMod4
+    of 0: prioReg.PRI_N0(nvicPrio).write()
+    of 1: prioReg.PRI_N1(nvicPrio).write()
+    of 2: prioReg.PRI_N2(nvicPrio).write()
+    of 3: prioReg.PRI_N3(nvicPrio).write()
 
-  # Enable the IRQ associated with the Task
-  # irqReg.SETENA = irqReg.SETENA.uint32 or irqBit
-  irqReg = irqReg.uint32 or irqBit # TODO: check if this resolves the above line
+  # Enable the interrupt associated with this Task
+  iserReg = irqBitf
 
   CRIT_EXIT()
 
-  # Store the NVIC Set-Pending register and the IRQ bit
-  self.nvicPendRegIdx = (self.nvicIrq shr 5)
-  self.nvicIrq = irqBit
+  # Store these values for later use
+  self.irqDiv32 = irqDiv32
+  self.irqBitf = irqBitf
+
+template pend[N, T](self: Task[N, T]) =
+  ## Schedules the task for execution by pending its interrupt
+  # Assumes the caller is in a critical section
+  let pendReg = case self.irqDiv32
+    of 0: NVIC.NVIC_ISPR_0
+    of 1: NVIC.NVIC_ISPR_1
+    of 2: NVIC.NVIC_ISPR_2
+    of 3: NVIC.NVIC_ISPR_3
+    else: assert(false) # if assert, declare more registers in arm_cm.nim
+  pendReg = self.irqBitf
 
 proc activate*(self: var Task) =
-  assert self.nUsed > 0'u8  # DBC_REQUIRE(300
-
-  CRIT_ENTRY()
-  # Get the event out of the queue
+  assert self.eventQue.len() > 0'u8
+  CRIT_ENTER()
   let e = self.eventQue.pop()
+  # If the queue is not empty after popping,
+  # schedule the task for execution again
   if self.eventQue.len() > 0:
-    # select the set-pending register
-    let pendReg = case self.nvicPendRegIdx
-      of 0: NVIC.NVIC_ISPR_0
-      of 1: NVIC.NVIC_ISPR_1
-      of 2: NVIC.NVIC_ISPR_2
-      of 3: NVIC.NVIC_ISPR_3
-      else: assert(false) # if assert, declare more registers in arm_cm.nim
-    # pend the associated IRQ
-    # pendReg.SETPEND = self.nvicIrq
-    pendReg = self.nvicIrq # TODO: check if this resolves the above line
+    self.pend()
+  CRIT_EXIT()
+  self.dispatch(e)  # task's event handler
 
+func setIrq*(self: var Task, irq: uint8) =
+  self.nviqIrq = irq
+
+func run*(appOnStart: proc) {.noreturn.} =
+  const writeKey = 0x05FA
+  SCB.AIRCR
+     .VECTKEY(writeKey)
+     .PRIGROUP(0) # clear NVIC priority grouping
+     .write()
+
+  if appOnStart != nil:
+    appOnStart()
+  while true:
+    WFI()
+
+func post*[N, T](self: var Task[N, T], e: Evnt[T]) =
+  ## Posts an event to the task and schedules the task for execution
+  CRIT_ENTER()
+  self.eventQue.add(e)
+  self.pend()
   CRIT_EXIT()
 
-  # dispatch the received event to this task
-  self.dispatch(self, e)
-
-
-func setIRQ*(self: var Task, irq: uint8) =
-  self.nvicIrq = irq
-
-
+# I don't have a plan for these two procs
 proc lock*(ceiling: TaskPrio): LockKey =
-  let nvicPrio: uint8 = ((0xFF'u8 shr nvicPrioShift) + 1'u8 - ceiling.uint8) shl nvicPrioShift
+  let nvicPrio: NvicPrio = ceiling
   result = BASEPRI.read()
   if result > nvicPrio:
-    disableIrq()
+    CRIT_ENTER()
     BASEPRI.write(nvicPrio)
-    enableIrq()
-
+    CRIT_EXIT()
 
 proc unlock*(lockKey: LockKey) =
   # NOTE: ARMv7-M+ support the BASEPRI register and the selective SST scheduler
@@ -186,92 +176,15 @@ proc unlock*(lockKey: LockKey) =
   BASEPRI.write(lockKey)
 
 
-#
-# sst.c
-#
-
-func run*(appOnStart: proc) {.noreturn.} =
-  start()
-  appOnStart()
-  while true:
-    WFI()
-
 # func newTask*[T](eventQue: ptr RingQue, init: Handler, dispatch: Handler): Task[N, T] =
 #   result = Task[N, T]()
 #   result.eventQue = eventQue
 #   result.init = init
 #  result.dispatch = dispatch
 
-func start*[N, T](self: var Task[N, T], prio: TaskPrio, initEvt: Evt) =
-  # DBC_REQUIRE(200 prio > 0) ...
+# SST_Task_start
+func startTask*[N, T](self: var Task[N, T], prio: TaskPrio, initEvnt: Evnt) =
+  # TODO: init priority queue
   self.setPrio(prio)
-  self.init(initEvt)
+  self.initTask(initEvnt)
 
-func post*[N, T](self: var Task[N, T], e: Evt[T]) =
-  # DBC_REQUIRE(300, self.nUsed <= self.end)
-  CRIT_ENTRY()
-  self.eventQue.add(e)
-  self.pend()
-  CRIT_EXIT()
-
-
-#
-# Kernel timer event and methods
-#
-
-type
-  TCtr = uint16
-
-  TimeEvt*[N: static uint8, T] = ref object
-    super: Evt[T]
-    next: TimeEvt[N, T]
-    task: Task[N, T]
-    ctr: TCtr
-    interval: TCtr
-
-proc newTimeEvt*[N, T](head: TimeEvt[N, T], sig: Signal, task: Task[N, T]): TimeEvt[N, T] =
-  # f.k.a. ctor
-  ## Inserts a new TimeEvt at the head of the linked list
-  # implicit allocation of TimeEvt node in variable, result
-  result.sig = sig
-  result.task = task
-  result.next = head
-  head = result
-
-func arm*[N, T](self: var TimeEvt[N, T], ctr: TCtr, interval: TCtr = 0) =
-  ## Arms the TimeEvt with the given counter value
-  ## The interval argument defaults to zero, which arms a one-shot timer.
-  ## Set interval to non-zero for a repeating timer.
-  CRIT_ENTRY()
-  self.ctr = ctr
-  self.interval = interval
-  CRIT_EXIT()
-
-func disarm*[N, T](self: var TimeEvt[N, T]): bool =
-  ## Disarms the given timer.  The timer remains in the list.
-  CRIT_ENTRY()
-  result = (self.ctr != 0)
-  self.ctr = 0
-  self.interval = 0
-  CRIT_EXIT()
-
-# usually called by the SysTick ISR handler
-proc tick*[N, T](head: ref TimeEvt[N, T]) =
-  ## For each timer event in the list:
-  ##    If the counter is 0, do nothing.  The counter is expired.
-  ##    If the counter is 1, dispatches the event to its task
-  ##    and resets the counter with the interval value.
-  ##    Otherwise, decrements the counter by one.
-  var t = head
-  while t != nil:
-    CRIT_ENTRY()
-    if t.ctr == 0:
-      CRIT_EXIT()
-    elif t.ctr == 1:
-      t.ctr = t.interval
-      CRIT_EXIT()
-      t.task.post(t.super)
-    else:
-      dec t.ctr
-      CRIT_EXIT()
-    t = t.next
