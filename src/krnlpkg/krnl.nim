@@ -7,7 +7,7 @@
 ##
 
 import std/[bitops, math]
-import cm4f/[core, fp, nvic, scb]
+import armv7m/[core, fp, nvic, scb]
 import nrf52840/device
 import ringque, types
 
@@ -38,12 +38,12 @@ proc init* =
   # Determine the number of NVIC priority bits by writing all ones to the
   # NVIC IP register for PendSV and then reading back the result,
   # which has only the implemented bits set.
-  let tmp = SCB.SHPR3   # store original value
-  SCB.SHPR3
-     .PRI_14(0xFF)      # write to PendSV prio
-     .write()
-  let prio = SCB.SHPR3.PRI_14.uint8 # read back implemented prio bits
-  SCB.SHPR3 = tmp       # restore original value
+  let tmp = SCB.SHPR3.read() # store original value
+  SCB.SHPR3.read()
+           .PRI_14(0xFF) # write to PendSV prio
+           .write()
+  let prio = SCB.SHPR3.read().PRI_14.uint8 # read back implemented prio bits
+  SCB.SHPR3.write(tmp) # restore original value
   # prio is an 8-bit field with the implemented bits set and packed toward the MSb.
   # nvicPrioShift is the offset to the least significant set bit of prio.
   let n = firstSetBit(prio) - 1
@@ -52,10 +52,10 @@ proc init* =
   assert nvicPrioShift == n, "Calculated priority shift does not match declaration from SVD."
 
   when cpu.fpuPresent:  # Configure the floating-point unit
-    FP.FPCCR
-      .ASPEN(1) # enable automatic FPU state preservation
-      .LSPEN(1) # enable lazy stacking
-      .write()
+    FP.FPCCR.read()
+            .ASPEN(1) # enable automatic FPU state preservation
+            .LSPEN(1) # enable lazy stacking
+            .write()
 
 func startTask*[N, T](self: var Task[N, T], prio: TaskPrio, initEvnt: Evnt) =
   # TODO: init priority queue?
@@ -69,56 +69,30 @@ proc setPrio(self: var Task, prio: TaskPrio) =
   assert prio <= (0xFF'u8 shr nvicPrioShift)
 
   let (irqDiv4, irqMod4) = divmod(self.irqNmbr, 4'u8)
-  let prioReg = case irqDiv4
-    of 0: NVIC.NVIC_IPR_0
-    of 1: NVIC.NVIC_IPR_1
-    of 2: NVIC.NVIC_IPR_2
-    of 3: NVIC.NVIC_IPR_3
-    of 4: NVIC.NVIC_IPR_4
-    of 5: NVIC.NVIC_IPR_5
-    of 6: NVIC.NVIC_IPR_6
-    of 7: NVIC.NVIC_IPR_7
-    of 8: NVIC.NVIC_IPR_8
-    of 9: NVIC.NVIC_IPR_9
-    of 10: NVIC.NVIC_IPR_10
-    of 11: NVIC.NVIC_IPR_11
-    of 12: NVIC.NVIC_IPR_12
-    of 13: NVIC.NVIC_IPR_13
-    of 14: NVIC.NVIC_IPR_14
-    of 15: NVIC.NVIC_IPR_15
-    # This will only assert when the MCU has more than 128 interrupts.
-    # If this asserts, expand the case-of table
-    else: assert(false)
+  let iprReg = NVIC.NVIC_IPR[irqDiv4]
 
   let (irqDiv32, irqMod32) = divmod(self.irqNmbr, 32'u8)
   let irqBitf = 1'u32 shl irqMod32
-  let iserReg = case irqDiv32
-    of 0: NVIC.NVIC_ISER_0
-    of 1: NVIC.NVIC_ISER_1
-    of 2: NVIC.NVIC_ISER_2
-    of 3: NVIC.NVIC_ISER_3
-    # This will only assert when the MCU has more than 128 interrupts.
-    # If this asserts, expand the case-of table
-    else: assert(false)
+  let iserReg = NVIC.NVIC_ISER[irqDiv32]
 
   let nvicPrio: NvicPrio = prio # implicitly calls the converter
   CRIT_ENTER()
   # Set the priority of the interrupt associated with this Task
   case irqMod4
-    of 0: prioReg.PRI_N0(nvicPrio).write()
-    of 1: prioReg.PRI_N1(nvicPrio).write()
-    of 2: prioReg.PRI_N2(nvicPrio).write()
-    of 3: prioReg.PRI_N3(nvicPrio).write()
+    of 0: iprReg.PRI_N0(nvicPrio).write()
+    of 1: iprReg.PRI_N1(nvicPrio).write()
+    of 2: iprReg.PRI_N2(nvicPrio).write()
+    of 3: iprReg.PRI_N3(nvicPrio).write()
   # Enable the interrupt associated with this Task
   iserReg = irqBitf
   CRIT_EXIT()
 
 func runForever*(appOnStart: proc) {.noreturn.} =
   const writeKey = 0x05FA
-  SCB.AIRCR
-     .VECTKEY(writeKey)
-     .PRIGROUP(0) # clear NVIC priority grouping
-     .write()
+  SCB.AIRCR.read()
+           .VECTKEY(writeKey)
+           .PRIGROUP(0) # clear NVIC priority grouping
+           .write()
 
   if appOnStart != nil:
     appOnStart()
@@ -147,4 +121,3 @@ func runForever*(appOnStart: proc) {.noreturn.} =
 #   result.eventQue = eventQue
 #   result.init = init
 #  result.dispatch = dispatch
-
