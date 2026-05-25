@@ -13,3 +13,4 @@ bin           = @["krnl"]
 # Dependencies
 
 requires "nim >= 2.0.0"
+requires "unittest2 >= 0.2.5"

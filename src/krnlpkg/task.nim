@@ -12,12 +12,17 @@ template CRIT_ENTER() =
 template CRIT_EXIT() =
   enableIrq()
 
+func irqNmbr(self: Task): uint8 =
+  ## Converts an ARM exception number to an NVIC IRQ number
+  # NOTE: The first 16 exception numbers are reserved for system exceptions
+  assert self.exnNmbr > 15'u8
+  result = self.exnNmbr - 16'u8
+
 template schedule[N, T](self: Task[N, T]) =
   ## Schedules the task for execution by pending its interrupt in the NVIC
   # NOTE: The caller MUST be in a critical section in privileged mode
-  SIG.STIR
-     .INTID(self.irqNum)
-     .write()
+
+  SIG.STIR.INTID(self.irqNum).write()
 
 proc activate*(self: var Task) =
   ## Pops an event within a critical section and calls the task's event handler.
@@ -31,7 +36,7 @@ proc activate*(self: var Task) =
   if self.eventQue.len() > 0:
     self.schedule()
   CRIT_EXIT()
-  self.dispatch(e)  # task's event handler
+  self.dispatch(e) # task's event handler
 
 func post*[N, T](self: var Task[N, T], e: Evnt[T]) =
   ## Posts an event to the task and schedules the task for execution
