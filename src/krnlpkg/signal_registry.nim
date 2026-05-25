@@ -4,48 +4,47 @@
 ##
 ## KRNL employs a publish/subscribe system to allow a task
 ## to subscribe to the signals in which it has interest.
-## This module provides the registry.
+## This module provides the subscription registry.
 ##
 ## Implementation note:  The number of signals in the system
-## may number in the thousands.  The number of tasks is limited
-## to the number of unused interrupt slots in the vector table.
-## We use a hash table keyed by the signal value to lookup a
-## bitset of the tasks subscribed to that signal.
+## likely exceeds 256.  The number of tasks is limited
+## to the number of interrupt slots in the vector table.
+## We use a hash table to hold the subscription registry.
+## The table is indexed by the signal.
+## The value is a bitfield of the interrupt slot numbers,
+## where the interrupt number uniquely identifies one task.
+##
 
 import std/tables
 import bitfield, types
 
-type
-  TaskId = ExceptionNmbr
-  TaskIdSet[N: static uint16] = Bitfield[N]
-  SignalRegistry[N: static uint16] = Table[Signal, TaskIdSet[N]]
+## N is the number of bits in the bitfield, which should be the number of
+## interrupts in the system rounded up to the nearest multiple of 32
+type SignalRegistry[Nb: static uint16] = Table[Signal, Bitfield[Nb]]
 
-let isEmptyTaskIdSet = TaskIdSet[0]()
+proc newRegistry*[Nb: static uint16](): ref SignalRegistry[Nb] =
+  newTable[Signal, Bitfield[Nb]]()
 
-proc newRegistry*[N: static uint16](): ref SignalRegistry[N] =
-  newTable[Signal, TaskIdSet[N]]()
-
-proc subscribe*[N: static uint16](
-    registry: ref SignalRegistry[N], sig: Signal, task: TaskId
+proc subscribe*[Nb: static uint16](
+    registry: ref SignalRegistry[Nb], sig: Signal, taskIrqNmbr: InterruptNmbr
 ) =
   ## Subscribes a task to a signal
   if sig notin registry:
-    registry[sig] = Bitfield()
-  registry[sig].incl(task)
+    registry[sig] = Bitfield[Nb]()
+  registry[sig].incl(taskIrqNmbr)
 
-proc unsubscribe*[N: static uint16](
-    registry: ref SignalRegistry[N], sig: Signal, task: TaskId
+proc unsubscribe*[Nb: static uint16](
+    registry: ref SignalRegistry[Nb], sig: Signal, taskIrqNmbr: InterruptNmbr
 ) =
   ## Unsubscribes a task from a signal
   if sig in registry:
-    registry[sig].excl(task)
+    registry[sig].excl(taskIrqNmbr)
 
-iterator pairs*[N: static uint16](
-    registry: ref SignalRegistry[N], sig: Signal
+iterator pairs*[Nb: static uint16](
+    registry: ref SignalRegistry[Nb], sig: Signal
 ): tuple[key: uint16, val: uint32] =
-  ## Returns each 32-bit field of the task ID bitset for the given signal,
-  ## where the key is the field index and the value is the field itself
+  ## Returns each 32-bit bitfield for the given signal
   if sig in registry:
-    let reg = registry[sig]
-    for i in 0'u8 ..< fields:
-      yield (i, reg[i])
+    let bitfield = registry[sig]
+    for i in 0'u8 ..< bitfield.len:
+      yield (i, bitfield[i])

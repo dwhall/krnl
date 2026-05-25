@@ -12,12 +12,6 @@ template CRIT_ENTER() =
 template CRIT_EXIT() =
   enableIrq()
 
-func irqNmbr(self: Task): uint8 =
-  ## Converts an ARM exception number to an NVIC IRQ number
-  # NOTE: The first 16 exception numbers are reserved for system exceptions
-  assert self.exnNmbr > 15'u8
-  result = self.exnNmbr - 16'u8
-
 template schedule[N, T](self: Task[N, T]) =
   ## Schedules the task for execution by pending its interrupt in the NVIC
   # NOTE: The caller MUST be in a critical section in privileged mode

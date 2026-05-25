@@ -11,8 +11,8 @@
 
 import std/math
 
-type Bitfield*[N: static uint16] = object
-  fields: array[ceilDiv(N, 32'u16), uint32]
+type Bitfield*[Nb: static uint16] = object
+  fields: array[ceilDiv(Nb, 32'u16), uint32]
   card: uint16 # number of bits currently set
 
 proc cap*(self: Bitfield): uint16 =
