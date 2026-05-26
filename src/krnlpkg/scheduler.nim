@@ -24,10 +24,10 @@ type # TODO: this should come from the ARM core import
   InterruptNmbr = uint16
 
 type # TODO: these should come from signal registry
-  Bitfield[N: static uint16] = object
+  Bitflags[N: static uint16] = object
     bits: array[N.ceilDiv (8 * sizeof uint32), uint32]
 
-  TaskSet = Bitfield[256]
+  TaskSet = Bitflags[256]
 
 type # TODO: this should come from the task (common?) import
   Task = object

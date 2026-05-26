@@ -11,26 +11,26 @@
 ## to the number of interrupt slots in the vector table.
 ## We use a hash table to hold the subscription registry.
 ## The table is indexed by the signal.
-## The value is a bitfield of the interrupt slot numbers,
+## The value is a bitflags of the interrupt slot numbers,
 ## where the interrupt number uniquely identifies one task.
 ##
 
 import std/tables
-import bitfield, types
+import bitflags, types
 
-## N is the number of bits in the bitfield, which should be the number of
+## N is the number of bits in the bitflags, which should be the number of
 ## interrupts in the system rounded up to the nearest multiple of 32
-type SignalRegistry[Nb: static uint16] = Table[Signal, Bitfield[Nb]]
+type SignalRegistry[Nb: static uint16] = Table[Signal, Bitflags[Nb]]
 
 proc newRegistry*[Nb: static uint16](): ref SignalRegistry[Nb] =
-  newTable[Signal, Bitfield[Nb]]()
+  newTable[Signal, Bitflags[Nb]]()
 
 proc subscribe*[Nb: static uint16](
     registry: ref SignalRegistry[Nb], sig: Signal, taskIrqNmbr: InterruptNmbr
 ) =
   ## Subscribes a task to a signal
   if sig notin registry:
-    registry[sig] = Bitfield[Nb]()
+    registry[sig] = Bitflags[Nb]()
   registry[sig].incl(taskIrqNmbr)
 
 proc unsubscribe*[Nb: static uint16](
@@ -43,8 +43,8 @@ proc unsubscribe*[Nb: static uint16](
 iterator pairs*[Nb: static uint16](
     registry: ref SignalRegistry[Nb], sig: Signal
 ): tuple[key: uint16, val: uint32] =
-  ## Returns each 32-bit bitfield for the given signal
+  ## Returns each 32-bit bitflags for the given signal
   if sig in registry:
-    let bitfield = registry[sig]
-    for i in 0'u8 ..< bitfield.len:
-      yield (i, bitfield[i])
+    let bitflags = registry[sig]
+    for i in 0'u8 ..< bitflags.len:
+      yield (i, bitflags[i])

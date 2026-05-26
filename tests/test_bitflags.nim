@@ -3,51 +3,51 @@
 import unittest2
 
 # module under test:
-include bitfield
+include bitflags
 
-test "SHOULD be able to create a bitfield":
-  check compiles Bitfield[32]()
+test "SHOULD be able to create a bitflags":
+  check compiles Bitflags[32]()
 
-test "cap SHOULD return the capacity of the bitfield":
-  let bf1 = Bitfield[64]()
+test "cap SHOULD return the capacity of the bitflags":
+  let bf1 = Bitflags[64]()
   check bf1.cap == 64
-  let bf2 = Bitfield[88]()
+  let bf2 = Bitflags[88]()
   check bf2.cap == 96
 
-test "SHOULD be able to include a flag in the bitfield":
-  var bf = Bitfield[32]()
+test "SHOULD be able to include a flag in the bitflags":
+  var bf = Bitflags[32]()
   check compiles bf.incl 5
 
-test "SHOULD be able to check if a flag is in the bitfield":
-  var bf = Bitfield[64]()
+test "SHOULD be able to check if a flag is in the bitflags":
+  var bf = Bitflags[64]()
   bf.incl 55
   check 55 in bf
 
-test "SHOULD be able to check if a flag is not in the bitfield":
-  var bf = Bitfield[64]()
+test "SHOULD be able to check if a flag is not in the bitflags":
+  var bf = Bitflags[64]()
   bf.incl 55
   check 23 notin bf
 
-test "SHOULD be able to exclude a flag from the bitfield":
-  var bf = Bitfield[64]()
+test "SHOULD be able to exclude a flag from the bitflags":
+  var bf = Bitflags[64]()
   check compiles bf.excl 55
 
 test "SHOULD be able to check that a flag is excluded":
-  var bf = Bitfield[64]()
+  var bf = Bitflags[64]()
   bf.incl 55
   bf.incl 0
   bf.excl 55
   check 55 notin bf
 
 test "SHOULD be able to check that a flag is not excluded":
-  var bf = Bitfield[64]()
+  var bf = Bitflags[64]()
   bf.incl 55
   bf.incl 0
   bf.excl 55
   check 0 in bf
 
-test "SHOULD be able to check if the bitfield is empty":
-  var bf = Bitfield[64]()
+test "SHOULD be able to check if the bitflags is empty":
+  var bf = Bitflags[64]()
   check bf.isEmpty
   bf.incl 1
   check not bf.isEmpty
@@ -58,8 +58,8 @@ test "SHOULD be able to check if the bitfield is empty":
   bf.excl 55
   check bf.isEmpty
 
-test "SHOULD be able to check the cardinality of the bitfield":
-  var bf = Bitfield[64]()
+test "SHOULD be able to check the cardinality of the bitflags":
+  var bf = Bitflags[64]()
   check bf.card == 0
   bf.incl 1
   check bf.card == 1
@@ -70,8 +70,8 @@ test "SHOULD be able to check the cardinality of the bitfield":
   bf.excl 55
   check bf.card == 0
 
-test "SHOULD be able to access the fields of the bitfield":
-  var bf = Bitfield[128]()
+test "SHOULD be able to access the fields of the bitflags":
+  var bf = Bitflags[128]()
   bf.incl 0
   check bf[0] == 1
   check bf[1] == 0

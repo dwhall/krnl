@@ -2,6 +2,8 @@
 |----       |----   |----
 |actor      | actr  | As in, the [Actor Model](https://en.wikipedia.org/wiki/Actor_model)
 |awsm       | awsm  | Actor With State Machine
+|bitflag    | bflg  | A sequence of contiguous bits acting as individual boolean-like state
+|bitfield   | bfld  | A sequence of configuous bits grouped for a specific representation
 |config[uration]    | cnfg | Data used to affect operation that requires a restart if changed (related: setting)
 |count      | cnt   | The quantitative number of a group of things (related: number, size)
 |interface  | intf  | An exported procedural interface

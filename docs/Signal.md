@@ -96,12 +96,12 @@ a source being temporarily absent (e.g., during a module replacement).
 
 ### Subscriber Table
 
-The subscriber table maps `Signal → bitfield of exception indices`, where each set bit
+The subscriber table maps `Signal → bitflags of exception indices`, where each set bit
 corresponds to the NVIC exception index of a subscribed Actor. When an Actor publishes
 an event:
 
 1. Actor calls KRNL via SVC.
-2. KRNL looks up the exception index bitfield for that `Signal`.
+2. KRNL looks up the exception index bitflag for that `Signal`.
 3. KRNL copies the `Event` into each subscribed Actor's event queue.
 4. KRNL sets each subscribed Actor's NVIC pending bit to schedule execution.
 
