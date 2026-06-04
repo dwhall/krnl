@@ -22,28 +22,35 @@ import bitflags, types
 ## interrupts in the system rounded up to the nearest multiple of 32
 type SignalRegistry[Nb: static uint16] = Table[Signal, Bitflags[Nb]]
 
-proc newRegistry*[Nb: static uint16](): ref SignalRegistry[Nb] =
-  newTable[Signal, Bitflags[Nb]]()
+proc newRegistry*[Nb](): SignalRegistry[Nb] =
+  result = Table[Signal, Bitflags[Nb]]()
 
-proc subscribe*[Nb: static uint16](
-    registry: ref SignalRegistry[Nb], sig: Signal, taskIrqNmbr: InterruptNmbr
+proc contains*[Nb](registry: SignalRegistry[Nb], sig: Signal): bool =
+  registry.hasKey(sig)
+
+proc register*[Nb](registry: var SignalRegistry[Nb], sig: Signal) =
+  ## Registers a signal in the registry if it doesn't already exist
+  assert sig notin registry, "Signal already registered"
+  registry[sig] = Bitflags[Nb]()
+
+proc subscribe*[Nb](
+    registry: var SignalRegistry[Nb], sig: Signal, taskIrqNmbr: InterruptNmbr
 ) =
-  ## Subscribes a task to a signal
-  if sig notin registry:
-    registry[sig] = Bitflags[Nb]()
-  registry[sig].incl(taskIrqNmbr)
+  ## Subscribes to a signal.  The given interrupt number will be scheduled
+  ## to run when the signal is published.
+  assert sig in registry, "Signal not registered"
+  registry[sig].incl(taskIrqNmbr.uint16)
 
-proc unsubscribe*[Nb: static uint16](
-    registry: ref SignalRegistry[Nb], sig: Signal, taskIrqNmbr: InterruptNmbr
+proc unsubscribe*[Nb](
+    registry: SignalRegistry[Nb], sig: Signal, taskIrqNmbr: InterruptNmbr
 ) =
-  ## Unsubscribes a task from a signal
-  if sig in registry:
-    registry[sig].excl(taskIrqNmbr)
+  ## Unsubscribes from a signal
+  registry[sig].excl(taskIrqNmbr.uint16)
 
-iterator pairs*[Nb: static uint16](
-    registry: ref SignalRegistry[Nb], sig: Signal
+iterator pairs*[Nb](
+    registry: SignalRegistry[Nb], sig: Signal
 ): tuple[key: uint16, val: uint32] =
-  ## Returns each 32-bit bitflags for the given signal
+  ## Yields all bitflags for the given signal as (wordIdx, bitflags.uint32)
   if sig in registry:
     let bitflags = registry[sig]
     for i in 0'u8 ..< bitflags.len:
