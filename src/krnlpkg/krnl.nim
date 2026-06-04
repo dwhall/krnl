@@ -6,10 +6,9 @@
 ##   https://github.com/QuantumLeaps/
 ##
 
-import std/[bitops, math]
 import armv7m/[core, fp, nvic, scb]
 import nrf52840/device
-import ringque, types
+import types, task
 
 type
   Handler = proc(self: var Task, e: Evnt)
@@ -22,11 +21,6 @@ template CRIT_ENTER() =
 
 template CRIT_EXIT() =
   enableIrq()
-
-converter toNvicPrio(prio: TaskPrio): NvicPrio =
-  ## Converts TaskPrio where 0 is the lowest priority
-  ## to NvicPrio where 0 is the highest priority
-  ((0xFF'u32 shr nvicPrioShift) + 1'u32 - prio) shl nvicPrioShift
 
 # Forward declarations
 proc setPrio(self: var Task, prio: TaskPrio)
