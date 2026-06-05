@@ -22,9 +22,6 @@ template CRIT_ENTER() =
 template CRIT_EXIT() =
   enableIrq()
 
-# Forward declarations
-proc setPrio(self: var Task, prio: TaskPrio)
-
 proc init* =
   ## Validates the NVIC's priority configuration
   ## and configures the core's floating-point unit
@@ -51,35 +48,9 @@ proc init* =
             .LSPEN(1) # enable lazy stacking
             .write()
 
-func startTask*[N, T](self: var Task[N, T], prio: TaskPrio, initEvnt: Evnt) =
-  # TODO: init priority queue?
-  self.setPrio(prio)
-  self.init(initEvnt)
-
-proc setPrio(self: var Task, prio: TaskPrio) =
-  ## Sets the this task's interrupt's priority
-  ## and enables the interrupt in the NVIC
-  assert self.irqNmbr > 0'u8
-  assert prio <= (0xFF'u8 shr nvicPrioShift)
-
-  let (irqDiv4, irqMod4) = divmod(self.irqNmbr, 4'u8)
-  let iprReg = NVIC.NVIC_IPR[irqDiv4]
-
-  let (irqDiv32, irqMod32) = divmod(self.irqNmbr, 32'u8)
-  let irqBitf = 1'u32 shl irqMod32
-  let iserReg = NVIC.NVIC_ISER[irqDiv32]
-
-  let nvicPrio: NvicPrio = prio # implicitly calls the converter
-  CRIT_ENTER()
-  # Set the priority of the interrupt associated with this Task
-  case irqMod4
-    of 0: iprReg.PRI_N0(nvicPrio).write()
-    of 1: iprReg.PRI_N1(nvicPrio).write()
-    of 2: iprReg.PRI_N2(nvicPrio).write()
-    of 3: iprReg.PRI_N3(nvicPrio).write()
-  # Enable the interrupt associated with this Task
-  iserReg = irqBitf
-  CRIT_EXIT()
+func startTask*[N, T](task: var Task[N, T], prio: TaskPriority, initEvnt: Evnt) =
+  task.setPriority(prio)
+  task.init(initEvnt)
 
 func runForever*(appOnStart: proc) {.noreturn.} =
   const writeKey = 0x05FA
@@ -97,8 +68,8 @@ func runForever*(appOnStart: proc) {.noreturn.} =
 
 # I don't have a plan for these two procs yet
 #
-# proc lock*(ceiling: TaskPrio): LockKey =
-#   let nvicPrio: NvicPrio = ceiling
+# proc lock*(ceiling: TaskPriority): LockKey =
+#   let nvicPrio: NvicPriority = ceiling
 #   result = BASEPRI.read()
 #   if result > nvicPrio:
 #     CRIT_ENTER()
