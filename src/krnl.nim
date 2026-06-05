@@ -1,8 +1,11 @@
 # This is just an example to get you started. A typical hybrid package
 # uses this file as the main entry point of the application.
 
-import krnlpkg/krnl
+import krnlpkg/types
 export Signal, TaskPriority, Evnt, Task
 
-import krnlpkg/ringque
-export ringque
+import krnlpkg/[boot, debug_rtt]
+export boot, debugPrint
+
+import krnlpkg/krnl
+export krnl

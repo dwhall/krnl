@@ -3,8 +3,8 @@
 ## KRNL task operations
 ##
 
-import armv7m/nvic
-import cm4f/[core, sig]
+import math
+import armv7m/[core, nvic, sig]
 import types
 
 template CRIT_ENTER() =

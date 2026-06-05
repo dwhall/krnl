@@ -21,11 +21,11 @@ type
 
 converter toInterruptNumber*(exnNmbr: ExceptionNmbr): InterruptNmbr =
   ## Converts an exception number to an interrupt number
-  result = InterruptNmbr(exnNmbr.uint16 - 16'u16)
+  InterruptNmbr(exnNmbr.uint16 - 16'u16)
 
 converter toNvicPriority(prio: TaskPriority): NvicPriority =
   ## Converts TaskPriority where 0 is the lowest priority
   ## to NvicPriority where 0 is the highest priority
-  # TODO: const nvicPrioShift = cpu.nvicPrioBits.uint32
+  # TODO: const nvicPrioShift = cpu.nvicPriorityBits.uint32
   const nvicPrioShift = 4 # FIXME
-  ((0xFF'u32 shr nvicPrioShift) + 1'u32 - prio) shl nvicPrioShift
+  NvicPriority(((0xFF'u32 shr nvicPrioShift) + 1'u32 - prio) shl nvicPrioShift)

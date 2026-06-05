@@ -1,20 +1,20 @@
-#!fmt: off
 ## Copyright 2024 Dean Hall See LICENSE for details
 ##
 ## KRNL: an event-based microkernel with memory protection for ARM Cortex-M devices
 ## This takes ideas from Miro Samek's Super-Simple-Tasker and QPc
 ##   https://github.com/QuantumLeaps/
 ##
+#!fmt: off
 
 import armv7m/[core, fp, nvic, scb]
 import nrf52840/device
-import types, task
+import debug_rtt, types, task
 
 type
   Handler = proc(self: var Task, e: Evnt)
   LockKey = uint32
 
-const nvicPrioShift = cpu.nvicPrioBits.uint32
+const nvicPrioShift = cpu.nvicPriorityBits.uint32
 
 template CRIT_ENTER() =
   disableIrq()
