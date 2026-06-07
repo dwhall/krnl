@@ -30,12 +30,6 @@ func startTask*[N, T](task: var Task[N, T], prio: TaskPriority, initEvnt: Evnt) 
   task.init(initEvnt)
 
 func runForever*(appOnStart: proc) {.noreturn.} =
-  const writeKey = 0x05FA
-  SCB.AIRCR.read()
-           .VECTKEY(writeKey)
-           .PRIGROUP(0) # clear NVIC priority grouping
-           .write()
-
   if appOnStart != nil:
     appOnStart()
   while true:

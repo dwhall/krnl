@@ -39,9 +39,17 @@ proc initFpu() =
             .LSPEN(1) # enable lazy stacking
             .write()
 
+proc setNvicPriorityGrouping(grouping: uint32 = 0) =
+  const writeKey = 0x05FA
+  SCB.AIRCR.read()
+           .VECTKEY(writeKey)
+           .PRIGROUP(grouping)
+           .write()
+
 proc boot*() =
   ## Initializes the system after reset
   ## This is called after NimMain() and before main()
   initRTT()
   validateNvicPriorityConfig()
   initFpu()
+  setNvicPriorityGrouping()
