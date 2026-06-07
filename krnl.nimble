@@ -14,3 +14,4 @@ bin           = @["krnl"]
 
 requires "nim >= 2.0.0"
 requires "unittest2 >= 0.2.5"
+requires "https://github.com/demotomohiro/pathX"
