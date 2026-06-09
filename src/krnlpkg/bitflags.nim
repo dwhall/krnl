@@ -17,32 +17,40 @@ type Bitflags*[Nb: static uint16] = object
   card: uint16 # number of bits currently set
 
 proc cap*(self: Bitflags): uint16 =
+  ## Returns the capacity of the bitflags, which is the declared number of bits,
+  ## Nb, rounded up to the next multiple of 32.
   self.flags.len.uint16 * 32'u16
 
+proc card*(self: Bitflags): uint16 =
+  ## Returns the number of bits currently set in the bitflags
+  self.card
+
 proc incl*(self: var Bitflags, flag: uint16) =
-  assert flag < self.cap
-  let
-    (wordIdx, bitIdx) = divmod(flag, 32'u16)
-    alreadySet = flag in self
-  if not alreadySet and self.card < self.cap:
+  ## Sets the flag in the bitflags
+  assert flag < self.cap, "This flag does not fit within the declared Bitflags object"
+  let (wordIdx, bitIdx) = divmod(flag, 32'u16)
+  let alreadySet = (self.flags[wordIdx] and (1'u32 shl bitIdx)) != 0'u32
+  if not alreadySet:
     inc self.card
-  self.flags[wordIdx] = self.flags[wordIdx] or (1'u32 shl bitIdx)
+    self.flags[wordIdx] = self.flags[wordIdx] or (1'u32 shl bitIdx)
 
 proc excl*(self: var Bitflags, flag: uint16) =
-  assert flag < self.cap
-  let
-    (wordIdx, bitIdx) = divmod(flag, 32'u16)
-    alreadySet = flag in self
-  if alreadySet and self.card > 0:
+  ## Clears the flag in the bitflags
+  assert flag < self.cap, "This flag does not fit within the declared Bitflags object"
+  let (wordIdx, bitIdx) = divmod(flag, 32'u16)
+  let alreadySet = (self.flags[wordIdx] and (1'u32 shl bitIdx)) != 0'u32
+  if alreadySet:
     dec self.card
-  self.flags[wordIdx] = self.flags[wordIdx] and not (1'u32 shl bitIdx)
+    self.flags[wordIdx] = self.flags[wordIdx] and not (1'u32 shl bitIdx)
 
 proc contains*(self: Bitflags, flag: uint16): bool =
-  assert flag < self.cap
+  ## Returns true if the flag is set in the bitflags, false otherwise
+  assert flag < self.cap, "This flag does not fit within the declared Bitflags object"
   let (wordIdx, bitIdx) = divmod(flag, 32'u16)
   (self.flags[wordIdx] and (1'u32 shl bitIdx)) != 0'u32
 
 proc isEmpty*(self: Bitflags): bool =
+  ## Returns true if no flags are set in the bitflags, false otherwise
   self.card == 0
 
 proc `[]`*(self: Bitflags, i: uint8): uint32 =

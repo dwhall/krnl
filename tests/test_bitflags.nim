@@ -3,7 +3,7 @@
 import unittest2
 
 # module under test:
-include bitflags
+import bitflags
 
 test "SHOULD be able to create a bitflags":
   check compiles Bitflags[32]()
@@ -95,3 +95,31 @@ test "SHOULD be able to access the fields of the bitflags":
   check bf[1] == 2
   check bf[2] == 4
   check bf[3] == 8
+
+test "incl SHOULD raise an assertion error if the flag is out of bounds":
+  var bf = Bitflags[64]()
+  expect AssertionDefect:
+    bf.incl 64
+  expect AssertionDefect:
+    bf.incl 100
+
+test "excl SHOULD raise an assertion error if the flag is out of bounds":
+  var bf = Bitflags[20]()
+  expect AssertionDefect:
+    bf.excl 32
+  expect AssertionDefect:
+    bf.excl 100
+
+test "excl an empty Bitfields SHOULD NOT cause the cardinality to underflow":
+  var bf = Bitflags[20]()
+  check bf.card == 0
+  bf.excl 5
+  check bf.card == 0
+
+test "incl a full Bitfields SHOULD NOT cause the cardinality to overflow":
+  var bf = Bitflags[32]()
+  for i in 0'u16 ..< 32:
+    bf.incl i
+  check bf.card == 32
+  bf.incl 5
+  check bf.card == 32
