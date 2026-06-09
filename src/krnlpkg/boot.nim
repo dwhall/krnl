@@ -2,7 +2,6 @@
 ##
 ## BOOT: operations at and near processor start-up
 ##
-#!fmt: off
 
 import std/bitops
 import armv7m/[fp, scb]
@@ -11,40 +10,35 @@ import debug_rtt
 
 const nvicPrioShift = cpu.nvicPriorityBits.uint32
 
-proc validateNvicPriorityConfig() =
+proc validateNvicPriorityConfig() {.inline.} =
   ## Validates the NVIC's priority configuration
   ## and configures the core's floating-point unit
 
   # Determine the number of NVIC priority bits by writing all ones to the
   # NVIC IP register for PendSV and then reading back the result,
   # which has only the implemented bits set.
-  let tmp = SCB.SHPR3.read().uint32 # store original value
-  SCB.SHPR3.read()
-           .PRI_14(0xFF) # write to PendSV prio
-           .write()
+  let originalValue = SCB.SHPR3.read().uint32
+  SCB.SHPR3.read().PRI_14(0xFF).write()
   let prio = SCB.SHPR3.read().PRI_14.uint8 # read back implemented prio bits
-  SCB.SHPR3.write(tmp) # restore original value
+  SCB.SHPR3.write(originalValue)
   # prio is an 8-bit field with the implemented bits set and packed toward the MSb.
   # nvicPrioShift is the offset to the least significant set bit of prio.
   let n = uint32(firstSetBit(prio) - 1)
   # If you reach this assert, either you used the wrong SVD file for your MCU
   # or the cpu/nvicPrioBits value in your SVD file is incorrect
-  assert nvicPrioShift == n, "Calculated priority shift does not match declaration from SVD."
+  assert nvicPrioShift == n,
+    "Calculated priority shift does not match declaration from SVD."
 
-proc initFpu() =
+proc initFpu(
+    enableAutoStatePreserve: static uint32 = 1, enableLazyStacking: static uint32 = 1
+) {.inline.} =
   ## Initializes the floating-point unit if present
-  when cpu.fpuAvail:  # Configure the floating-point unit
-    FP.FPCCR.read()
-            .ASPEN(1) # enable automatic FPU state preservation
-            .LSPEN(1) # enable lazy stacking
-            .write()
+  when cpu.fpuAvail:
+    FP.FPCCR.read().ASPEN(enableAutoStatePreserve).LSPEN(enableLazyStacking).write()
 
-proc setNvicPriorityGrouping(grouping: uint32 = 0) =
+proc setNvicPriorityGrouping(grouping: static uint32 = 0) {.inline.} =
   const writeKey = 0x05FA
-  SCB.AIRCR.read()
-           .VECTKEY(writeKey)
-           .PRIGROUP(grouping)
-           .write()
+  SCB.AIRCR.read().VECTKEY(writeKey).PRIGROUP(grouping).write()
 
 proc boot*() =
   ## Initializes the system after reset
