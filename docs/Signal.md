@@ -31,15 +31,15 @@ A module selects the form based on how many signals it declares.
 
 ## Source Identification
 
-Each signal source (software module or Actor) is identified by a dotted namespace string:
+Each signal source (software module or Task) is identified by a dotted namespace string:
 
 ```
 <business group>.<package>
 ```
 
-KRNL itself is a source and registers like any other module, with the exception that
-certain KRNL-internal signals used during early boot/init may be available before full
-registration is complete.
+KRNL itself is a source and performs signal registration like any other module, 
+with the exception that certain KRNL-internal signals used during early boot/init
+may be available before full registration is complete.
 
 ### Hash Generation
 
@@ -51,7 +51,7 @@ registration is complete.
 
 ## Signal Registry
 
-KRNL maintains a Signal Registry built at boot/init and updated as modules are loaded.
+KRNL maintains a Signal Registry built during init and updated as modules are loaded.
 It is intentionally minimal to conserve memory.
 
 ### Registry Entry

@@ -1,7 +1,7 @@
 # KRNL
 
-A minimalist microkernel
-for ARM Cortex-M devices with an MPU
+An event-driven microkernel
+for ARM Cortex-M (ARMv7m and v8m) devices
 written in [Nim](https://nim-lang.org/)
 
 Borrows on ideas from:
@@ -9,10 +9,16 @@ Borrows on ideas from:
 * [seL4](https://sel4.systems/About/)
 
 Things that belong in the microkernel:
-* Memory management, protection and DMA
-* Interrupt handling
+* Task registration
 * Event dispatch to Tasks
+* NVIC-accelerated scheduler
+* Interrupt handling
+* Memory management and DMA
+* System time management
+* SBOM and Capabilities security
+* Cryptographic identity and authentication
 
 Things to keep OUT of the microkernel:
-* Messages - Variable length, application-level messages: (time, src, dst, payld), any bus
+* Message Passing - Variable length, application-level messages: (time, src, dst, payld), any bus
+    - instead, a user-space service manages zero-copy messaging; employs Kernel event.
 * Device Drivers that do NOT directly support microkernel objects.
