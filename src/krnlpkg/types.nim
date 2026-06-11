@@ -11,16 +11,17 @@ type
   ActrPriority* = uint8 # 0 is the lowest priority
   NvicPriority* = uint8 # 0 is the highest priority
 
-  Signal* = int32
-
   ## An Actr is an active object with an event handler that processes
   ## events serialized in its event queue.  It can also spawn child Actrs.
-  Actr* = object of RootObj
+  Actr*[N: static uint8] = object of RootObj
     eventHandler: EventHandler
-    eventQueue: ptr RingQue[Event] # must be ptr because it may be declared on the stack
+    eventQueue: ptr RingQue[N, Event] # must be ptr; may be declared on the stack
     children: seq[Actr]
     irqNmbr*: InterruptNmbr # VectorTable index; also serves as a unique identifier
     priority: ActrPriority
+
+  ## The Signal is a value that discriminates an Event.
+  Signal* = uint32
 
   ## Events are the fundamental and primary communication between Actrs.
   ## Events are posted from one Actr to a child Actr,
