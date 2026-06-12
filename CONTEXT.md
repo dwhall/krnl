@@ -31,7 +31,7 @@ Source: https://github.com/dwhall/krnl
 |-----------|-------------|--------|
 | `krnl`    | Kernel init, NVIC priority setup, `runForever` loop | Rough draft |
 | `scheduler` | Task activation, event posting, IRQ scheduling | Not started |
-| `types`   | Core types: `Signal`, `Evnt[T]`, `Task[N,T]`, priorities | Rough draft |
+| `types`   | Core types: `Signal`, `Evnt`, `Task[N]`, priorities | Rough draft |
 | `ringque` | Static, type-generic circular event queue | Rough draft |
 | AWSM      | Actors with State Machines: hierarchical state machine event-driven tasks | [Separate repo](https://github.com/dwhall/awsm) |
 | `prot`    | Use MPU hardware to establish memory and peripheral protection | Not started |

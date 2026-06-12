@@ -8,14 +8,13 @@ import types
 type
   TCtr = uint16
 
-  TimeEvnt*[N: static uint8, T] = ref object
-    super: Evnt[T]
-    next: TimeEvnt[N, T]
-    task: Task[N, T]
+  TimeEvnt*[N: static uint8] = ref object of Evnt
+    next: TimeEvnt[N]
+    task: Task[N]
     ctr: TCtr
     interval: TCtr
 
-proc newTimeEvnt*[N, T](head: TimeEvnt[N, T], sig: Signal, task: Task[N, T]): TimeEvnt[N, T] =
+proc newTimeEvnt*[N](head: TimeEvnt[N], sig: Signal, task: Task[N]): TimeEvnt[N] =
   # f.k.a. ctor
   ## Inserts a new TimeEvnt at the head of the linked list
   # implicit allocation of TimeEvnt node in variable, result
@@ -24,7 +23,7 @@ proc newTimeEvnt*[N, T](head: TimeEvnt[N, T], sig: Signal, task: Task[N, T]): Ti
   result.next = head
   head = result
 
-func arm*[N, T](self: var TimeEvnt[N, T], ctr: TCtr, interval: TCtr = 0) =
+func arm*[N](self: var TimeEvnt[N], ctr: TCtr, interval: TCtr = 0) =
   ## Arms the TimeEvnt with the given counter value
   ## The interval argument defaults to zero, which arms a one-shot timer.
   ## Set interval to non-zero for a repeating timer.
@@ -33,7 +32,7 @@ func arm*[N, T](self: var TimeEvnt[N, T], ctr: TCtr, interval: TCtr = 0) =
   self.interval = interval
   CRIT_EXIT()
 
-func disarm*[N, T](self: var TimeEvnt[N, T]): bool =
+func disarm*[N](self: var TimeEvnt[N]): bool =
   ## Disarms the given timer.  The timer remains in the list.
   CRIT_ENTER()
   result = (self.ctr != 0)
@@ -42,7 +41,7 @@ func disarm*[N, T](self: var TimeEvnt[N, T]): bool =
   CRIT_EXIT()
 
 # usually called by the SysTick ISR handler
-proc tick*[N, T](head: ref TimeEvnt[N, T]) =
+proc tick*[N](head: ref TimeEvnt[N]) =
   ## For each timer event in the list:
   ##    If the counter is 0, do nothing.  The counter is expired.
   ##    If the counter is 1, dispatches the event to its task
@@ -56,7 +55,7 @@ proc tick*[N, T](head: ref TimeEvnt[N, T]) =
     elif t.ctr == 1:
       t.ctr = t.interval
       CRIT_EXIT()
-      t.task.post(t.super)
+      t.task.post(t)
     else:
       dec t.ctr
       CRIT_EXIT()

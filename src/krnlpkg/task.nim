@@ -13,7 +13,7 @@ template CRIT_ENTER() =
 template CRIT_EXIT() =
   enableIrq()
 
-template schedule[N, T](self: Task[N, T]) =
+template schedule[N](self: Task[N]) =
   ## Schedules the task for execution by pending its interrupt in the NVIC
   # NOTE: The caller MUST be in a critical section in privileged mode
   SIG.STIR.INTID(self.irqNum)
@@ -32,7 +32,7 @@ proc activate*(self: var Task) =
   CRIT_EXIT()
   self.dispatch(e) # task's event handler
 
-func post*[N, T](self: var Task[N, T], e: Evnt[T]) =
+func post*[N](self: var Task[N], e: Evnt) =
   ## Posts an event to the task and schedules the task for execution
   ## within a critical section
   # NOTE: The caller MUST be in privileged mode

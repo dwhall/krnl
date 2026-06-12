@@ -1,4 +1,8 @@
-import ringque
+## Copyright 2026 Dean Hall See LICENSE for details
+##
+## KRNL broadly used types and converters
+
+import ringque, event_value
 
 type
   ExceptionNmbr* = distinct uint16 # ARM Exception number
@@ -8,15 +12,15 @@ type
   NvicPriority* = uint8 # 0 is the highest priority
 
   Signal* = int32
-  Evnt*[T] = object
+  Evnt* = object
     sig*: Signal
-    val*: T
+    val*: EventValue
 
-  Task*[N: static uint8, T] = object
+  Task*[N: static uint8] = object
     # Are these AWSM-specific?
-    # init*: proc(self: var Task[N, T], e: Evnt[T])
-    # dispatch*: proc(self: var Task[N, T], e: Evnt[T])
-    eventQue*: RingQue[N, Evnt[T]]
+    # init*: proc(self: var Task[N], e: Evnt)
+    # dispatch*: proc(self: var Task[N], e: Evnt)
+    eventQue*: RingQue[N, Evnt]
     irqNmbr*: InterruptNmbr # serves as unique identifier
 
 converter toInterruptNumber*(exnNmbr: ExceptionNmbr): InterruptNmbr =
