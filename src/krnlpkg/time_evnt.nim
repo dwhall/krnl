@@ -8,13 +8,13 @@ import types
 type
   TCtr = uint16
 
-  TimeEvnt*[N: static uint8] = ref object of Evnt
-    next: TimeEvnt[N]
-    task: Task[N]
+  TimeEvnt* = ref object of Evnt
+    next: TimeEvnt
+    task: Task
     ctr: TCtr
     interval: TCtr
 
-proc newTimeEvnt*[N](head: TimeEvnt[N], sig: Signal, task: Task[N]): TimeEvnt[N] =
+proc newTimeEvnt*(head: TimeEvnt, sig: Signal, task: Task): TimeEvnt =
   # f.k.a. ctor
   ## Inserts a new TimeEvnt at the head of the linked list
   # implicit allocation of TimeEvnt node in variable, result
@@ -23,7 +23,7 @@ proc newTimeEvnt*[N](head: TimeEvnt[N], sig: Signal, task: Task[N]): TimeEvnt[N]
   result.next = head
   head = result
 
-func arm*[N](self: var TimeEvnt[N], ctr: TCtr, interval: TCtr = 0) =
+func arm*(self: var TimeEvnt, ctr: TCtr, interval: TCtr = 0) =
   ## Arms the TimeEvnt with the given counter value
   ## The interval argument defaults to zero, which arms a one-shot timer.
   ## Set interval to non-zero for a repeating timer.
@@ -32,7 +32,7 @@ func arm*[N](self: var TimeEvnt[N], ctr: TCtr, interval: TCtr = 0) =
   self.interval = interval
   CRIT_EXIT()
 
-func disarm*[N](self: var TimeEvnt[N]): bool =
+func disarm*(self: var TimeEvnt): bool =
   ## Disarms the given timer.  The timer remains in the list.
   CRIT_ENTER()
   result = (self.ctr != 0)
@@ -41,7 +41,7 @@ func disarm*[N](self: var TimeEvnt[N]): bool =
   CRIT_EXIT()
 
 # usually called by the SysTick ISR handler
-proc tick*[N](head: ref TimeEvnt[N]) =
+proc tick*(head: ref TimeEvnt) =
   ## For each timer event in the list:
   ##    If the counter is 0, do nothing.  The counter is expired.
   ##    If the counter is 1, dispatches the event to its task

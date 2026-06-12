@@ -2,7 +2,7 @@
 ##
 ## KRNL broadly used types and converters
 
-import ringque, event_value
+import event_value
 
 type
   ExceptionNmbr* = distinct uint16 # ARM Exception number
@@ -16,12 +16,9 @@ type
     sig*: Signal
     val*: EventValue
 
-  Task*[N: static uint8] = object
-    # Are these AWSM-specific?
-    # init*: proc(self: var Task[N], e: Evnt)
-    # dispatch*: proc(self: var Task[N], e: Evnt)
-    eventQue*: RingQue[N, Evnt]
-    irqNmbr*: InterruptNmbr # serves as unique identifier
+  Task* = object
+    priority: TaskPriority
+    irqNmbr*: InterruptNmbr # VectorTable slot; also serves as a unique identifier
 
 converter toInterruptNumber*(exnNmbr: ExceptionNmbr): InterruptNmbr =
   ## Converts an exception number to an interrupt number
