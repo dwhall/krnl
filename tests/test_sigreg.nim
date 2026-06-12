@@ -8,21 +8,21 @@ include signal_registry
 test "SHOULD be able to create a signal registry":
   check compiles newRegistry[64]()
 
-test "SHOULD include subscribed task in signal's subscriber set":
+test "SHOULD include subscribed actr in signal's subscriber set":
   var r = newRegistry[64'u16]()
   let sig: Signal = 42
   r.register(sig)
-  let task = Task()
-  r.subscribe(sig, task.irqNmbr)
-  check task.irqNmbr.uint16 in r[sig]
+  let actr = Actr()
+  r.subscribe(sig, actr.irqNmbr)
+  check actr.irqNmbr.uint16 in r[sig]
 
-test "SHOULD allow multiple tasks to subscribe to the same signal":
+test "SHOULD allow multiple actrs to subscribe to the same signal":
   var r = newRegistry[64'u16]()
   let sig: Signal = 100
   r.register(sig)
-  let task1 = Task()
-  let task2 = Task()
-  r.subscribe(sig, task1.irqNmbr)
-  r.subscribe(sig, task2.irqNmbr)
-  check task1.irqNmbr.uint16 in r[sig]
-  check task2.irqNmbr.uint16 in r[sig]
+  let actr1 = Actr()
+  let actr2 = Actr()
+  r.subscribe(sig, actr1.irqNmbr)
+  r.subscribe(sig, actr2.irqNmbr)
+  check actr1.irqNmbr.uint16 in r[sig]
+  check actr2.irqNmbr.uint16 in r[sig]

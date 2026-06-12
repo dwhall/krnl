@@ -68,4 +68,4 @@ func full*[N, T](self: RingQue[N, T]): bool {.inline.} =
 proc `=copy`[N, T](
   dst: var RingQue[N, T], src: RingQue[N, T]
 ) {.error: "RingQue is owned and cannot be copied".}
-  ## Prevent a RingQue from being copied because they are owned by a Task
+  ## Prevent a RingQue from being copied because they are owned

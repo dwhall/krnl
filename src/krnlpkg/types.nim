@@ -8,7 +8,7 @@ type
   ExceptionNmbr* = distinct uint16 # ARM Exception number
   InterruptNmbr* = distinct uint16 # ARM Interrupt number
 
-  TaskPriority* = uint8 # 0 is the lowest priority
+  ActrPriority* = uint8 # 0 is the lowest priority
   NvicPriority* = uint8 # 0 is the highest priority
 
   Signal* = int32
@@ -16,16 +16,16 @@ type
     sig*: Signal
     val*: EventValue
 
-  Task* = object
-    priority: TaskPriority
+  Actr* = object
+    priority: ActrPriority
     irqNmbr*: InterruptNmbr # VectorTable slot; also serves as a unique identifier
 
 converter toInterruptNumber*(exnNmbr: ExceptionNmbr): InterruptNmbr =
   ## Converts an exception number to an interrupt number
   InterruptNmbr(exnNmbr.uint16 - 16'u16)
 
-converter toNvicPriority(prio: TaskPriority): NvicPriority =
-  ## Converts TaskPriority where 0 is the lowest priority
+converter toNvicPriority(prio: ActrPriority): NvicPriority =
+  ## Converts ActrPriority where 0 is the lowest priority
   ## to NvicPriority where 0 is the highest priority
   # TODO: const nvicPrioShift = cpu.nvicPriorityBits.uint32
   const nvicPrioShift = 4 # FIXME

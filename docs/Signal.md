@@ -31,7 +31,7 @@ A module selects the form based on how many signals it declares.
 
 ## Source Identification
 
-Each signal source (software module or Task) is identified by a dotted namespace string:
+Each signal source (software module or Actr) is identified by a dotted namespace string:
 
 ```
 <business group>.<package>

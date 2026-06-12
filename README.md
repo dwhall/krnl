@@ -9,8 +9,8 @@ Borrows on ideas from:
 * [seL4](https://sel4.systems/About/)
 
 Things that belong in the microkernel:
-* Task registration
-* Event dispatch to Tasks
+* Actr registration
+* Event dispatch to Actrs
 * NVIC-accelerated scheduler
 * Interrupt handling
 * Memory management and DMA

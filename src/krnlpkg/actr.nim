@@ -1,6 +1,6 @@
 ## Copyright 2026 Dean Hall See LICENSE for details
 ##
-## KRNL task operations
+## KRNL Actr operations
 ##
 
 import math
@@ -13,16 +13,16 @@ template CRIT_ENTER() =
 template CRIT_EXIT() =
   enableIrq()
 
-template schedule(self: Task) =
-  ## Schedules the task for execution by pending its interrupt in the NVIC
+template schedule(self: Actr) =
+  ## Schedules the actr for execution by pending its interrupt in the NVIC
   # NOTE: The caller MUST be in a critical section in privileged mode
   SIG.STIR.INTID(self.irqNum)
 
-proc activate*(self: var Task) =
-  ## Pops an event within a critical section and calls the task's event handler.
-  ## If the task's event queue is not empty after popping,
-  ## the task is scheduled for execution again.
-  # NOTE: MUST only be called when the task has an event in its queue
+proc activate*(self: var Actr) =
+  ## Pops an event within a critical section and calls the actr's event handler.
+  ## If the actr's event queue is not empty after popping,
+  ## the actr is scheduled for execution again.
+  # NOTE: MUST only be called when the actr has an event in its queue
   # NOTE: The caller MUST be in privileged mode
   assert self.eventQue.len() > 0'u8
   CRIT_ENTER()
@@ -30,10 +30,10 @@ proc activate*(self: var Task) =
   if self.eventQue.len() > 0:
     self.schedule()
   CRIT_EXIT()
-  self.dispatch(e) # task's event handler
+  self.dispatch(e) # actr's event handler
 
-func post*(self: var Task, e: Evnt) =
-  ## Posts an event to the task and schedules the task for execution
+func post*(self: var Actr, e: Evnt) =
+  ## Posts an event to the actr and schedules the actr for execution
   ## within a critical section
   # NOTE: The caller MUST be in privileged mode
   CRIT_ENTER()
@@ -41,8 +41,8 @@ func post*(self: var Task, e: Evnt) =
   self.schedule()
   CRIT_EXIT()
 
-proc setPriority*(self: var Task, prio: TaskPriority) =
-  ## Sets the this task's interrupt's priority
+proc setPriority*(self: var Actr, prio: ActrPriority) =
+  ## Sets the this actr's interrupt's priority
   ## and enables the interrupt in the NVIC
   assert self.irqNmbr > 0'u8
   assert prio <= (0xFF'u8 shr nvicPrioShift)
@@ -56,7 +56,7 @@ proc setPriority*(self: var Task, prio: TaskPriority) =
 
   let nvicPrio: NvicPriority = prio # implicitly calls the converter
   CRIT_ENTER()
-  # Set the priority of the interrupt associated with this Task
+  # Set the priority of the interrupt associated with this Actr
   case irqMod4
   of 0:
     iprReg.PRI_N0(nvicPrio).write()
@@ -66,9 +66,9 @@ proc setPriority*(self: var Task, prio: TaskPriority) =
     iprReg.PRI_N2(nvicPrio).write()
   of 3:
     iprReg.PRI_N3(nvicPrio).write()
-  # Enable the interrupt associated with this Task
+  # Enable the interrupt associated with this Actr
   iserReg = irqBitf
   CRIT_EXIT()
 
-func setIrq*(self: var Task, irq: uint8) =
+func setIrq*(self: var Actr, irq: uint8) =
   self.irqNum = irq
