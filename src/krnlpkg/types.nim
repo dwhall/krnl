@@ -2,7 +2,7 @@
 ##
 ## KRNL broadly used types and converters
 
-import event_value
+import event_value, ringque
 
 type
   ExceptionNmbr* = distinct uint16 # ARM Exception number
@@ -12,13 +12,37 @@ type
   NvicPriority* = uint8 # 0 is the highest priority
 
   Signal* = int32
+
+  ## An Actr is an active object with an event handler that processes
+  ## events serialized in its event queue.  It can also spawn child Actrs.
+  Actr* = object of RootObj
+    eventHandler: EventHandler
+    eventQueue: ptr RingQue[Event] # must be ptr because it may be declared on the stack
+    children: seq[Actr]
+    irqNmbr*: InterruptNmbr # VectorTable index; also serves as a unique identifier
+    priority: ActrPriority
+
+  ## Events are the fundamental and primary communication between Actrs.
+  ## Events are posted from one Actr to a child Actr,
+  ## or published so that every Actr might receive the Event.
   Event* = object
     sig*: Signal
     val*: EventValue
 
-  Actr* = object
-    priority: ActrPriority
-    irqNmbr*: InterruptNmbr # VectorTable slot; also serves as a unique identifier
+  ## An Actr has at least one EventHandler, which may optionally transition
+  ## to another EventHandler in response to an Event; forming a state machine.
+  EventHandler* = proc(self: Actr, event: Event): HandlerReturn {.nimcall.}
+
+  ## Every EventHandler returns a HandlerReturn code to indicate
+  ## how the event was processed.
+  HandlerReturn* = enum
+    RetSuper
+    RetUnhandled
+    RetHandled
+    RetIgnored
+    RetEntry
+    RetExit
+    RetTransitioned
 
 converter toInterruptNumber*(exnNmbr: ExceptionNmbr): InterruptNmbr =
   ## Converts an exception number to an interrupt number
