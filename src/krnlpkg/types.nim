@@ -12,7 +12,7 @@ type
   NvicPriority* = uint8 # 0 is the highest priority
 
   Signal* = int32
-  Evnt* = object
+  Event* = object
     sig*: Signal
     val*: EventValue
 

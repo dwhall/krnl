@@ -32,7 +32,7 @@ Source: https://github.com/dwhall/krnl
 |-----------|-------------|--------|
 | `krnl`    | Kernel init, NVIC priority setup, `runForever` loop | Rough draft |
 | `scheduler` | Actr activation, event posting, IRQ scheduling | In flux |
-| `types`   | Core types: `Signal`, `Evnt`, `Actr`, priorities | Second draft |
+| `types`   | Core types: `Signal`, `Event`, `Actr`, priorities | Second draft |
 | `ringque` | Static, type-generic circular event queue | seems to be working |
 | `awsm`    | Actrs With State Machines: actrs update their event handler to effect a hierarchical state machine | Just getting started |
 | `prot`    | Use MPU hardware to establish memory and peripheral protection | Far back burner |

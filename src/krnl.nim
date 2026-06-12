@@ -2,7 +2,7 @@
 # uses this file as the main entry point of the application.
 
 import krnlpkg/types
-export Signal, ActrPriority, Evnt, Actr
+export Signal, ActrPriority, Event, Actr
 
 import krnlpkg/[boot, debug_rtt]
 export boot, debugPrint
