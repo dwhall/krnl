@@ -17,15 +17,13 @@
 import std/math
 import armv7m/[nvic, sig]
 import nrf52840/device
-import bitflags, types
+import bitflags, task_set, types
 
 const PLAT_IRQ_CNT = 256 # placeholder; shold come from device import
 
 type
   # TODO: this should come from the ARM core import
   InterruptNmbr = uint16
-  # TODO: these should come from signal registry
-  TaskSet = Bitflags[PLAT_IRQ_CNT]
   Scheduler = object
     taskRegistry: array[PLAT_IRQ_CNT, ref Task]
     enabled: array[PLAT_IRQ_CNT, bool]
