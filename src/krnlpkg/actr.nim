@@ -32,7 +32,7 @@ proc activate*(self: var Actr) =
   CRIT_EXIT()
   self.dispatch(e) # actr's event handler
 
-func post*(self: var Actr, e: Evnt) =
+func post*(self: var Actr, e: Event) =
   ## Posts an event to the actr and schedules the actr for execution
   ## within a critical section
   # NOTE: The caller MUST be in privileged mode

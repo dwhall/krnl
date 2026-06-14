@@ -2,7 +2,7 @@
 ##
 ## KRNL broadly used types and converters
 
-import event_value, ringque
+import proj, ringque
 
 type
   ExceptionNmbr* = distinct uint16 # ARM Exception number

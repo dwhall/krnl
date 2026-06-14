@@ -7,9 +7,6 @@
 ## The number of bits used in the Bitflags type must be determined at compile time.
 
 import bitflags
-
-# TODO: this should be determined at compile time 
-# based on the platform/processor
-const platInterruptCount {.intdefine.}: uint16 = 64
+import plat
 
 type ActrSet* = Bitflags[platInterruptCount]
