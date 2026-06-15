@@ -5,7 +5,7 @@
 
 import math
 import armv7m/[core, nvic, sig]
-import types
+import plat, types
 
 template CRIT_ENTER() =
   disableIrq()
@@ -45,14 +45,14 @@ proc setPriority*(self: var Actr, prio: ActrPriority) =
   ## Sets the this actr's interrupt's priority
   ## and enables the interrupt in the NVIC
   assert self.irqNmbr > 0'u8
-  assert prio <= (0xFF'u8 shr nvicPrioShift)
+  assert prio <= (0xFF'u8 shr plat.platNvicPriorityBits)
 
   let (irqDiv4, irqMod4) = divmod(self.irqNmbr, 4'u8)
-  let iprReg = NVIC.NVIC_IPR[irqDiv4]
+  let iprReg = NVIC.NVIC_IPR(irqDiv4)
 
   let (irqDiv32, irqMod32) = divmod(self.irqNmbr, 32'u8)
   let irqBitf = 1'u32 shl irqMod32
-  let iserReg = NVIC.NVIC_ISER[irqDiv32]
+  let iserReg = NVIC.NVIC_ISER(irqDiv32)
 
   let nvicPrio: NvicPriority = prio # implicitly calls the converter
   CRIT_ENTER()

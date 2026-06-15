@@ -2,7 +2,7 @@
 ##
 ## KRNL broadly used types and converters
 
-import proj, ringque
+import plat, proj, ringque
 
 type
   ExceptionNmbr* = distinct uint16 # ARM Exception number
@@ -52,6 +52,7 @@ converter toInterruptNumber*(exnNmbr: ExceptionNmbr): InterruptNmbr =
 converter toNvicPriority(prio: ActrPriority): NvicPriority =
   ## Converts ActrPriority where 0 is the lowest priority
   ## to NvicPriority where 0 is the highest priority
-  # TODO: const nvicPrioShift = cpu.nvicPriorityBits.uint32
-  const nvicPrioShift = 4 # FIXME
-  NvicPriority(((0xFF'u32 shr nvicPrioShift) + 1'u32 - prio) shl nvicPrioShift)
+  NvicPriority(
+    ((0xFF'u32 shr plat.platNvicPriorityBits) + 1'u32 - prio) shl
+      plat.platNvicPriorityBits
+  )

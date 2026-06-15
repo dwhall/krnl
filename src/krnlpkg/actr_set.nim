@@ -9,4 +9,4 @@
 import bitflags
 import plat
 
-type ActrSet* = Bitflags[platInterruptCount]
+type ActrSet* = Bitflags[plat.platInterruptCount]
