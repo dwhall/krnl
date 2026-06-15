@@ -43,45 +43,15 @@ proc disable(schd: var Scheduler, actr: ref Actr) =
   schd.enabled[actr.irqNmbr] = false
   NVIC.NVIC_ICER(regIdx).SETENA(bitIdx, 1)
 
-proc schedule(schd: Scheduler, actr: ref Actr) =
-  ## Schedule a single actr to run by pending its interrupt
-  SIG.STIR.INTID(actr.irqNmbr)
-
-proc schedule(schd: Scheduler, actrset: ActrSet) =
-  ## Schedule multiple actrs to run by pending their interrupts.
-  ## In an ActrSet, the bit index corresponds to the actr's irqNmbr.
-  ## The ActrSet set usually comes from the the subscribers to a signal.
-  when true:
-    when plat.platInterruptCount > 0:
-      NVIC.NVIC_ISPR[0] = actrset[0]
-    when plat.platInterruptCount > 32:
-      NVIC.NVIC_ISPR[1] = actrset[1]
-    when plat.platInterruptCount > 64:
-      NVIC.NVIC_ISPR[2] = actrset[2]
-      NVIC.NVIC_ISPR[3] = actrset[3]
-    when plat.platInterruptCount > 128:
-      NVIC.NVIC_ISPR[4] = actrset[4]
-      NVIC.NVIC_ISPR[5] = actrset[5]
-      NVIC.NVIC_ISPR[6] = actrset[6]
-      NVIC.NVIC_ISPR[7] = actrset[7]
-    # TODO: when plat.platInterruptCount > 256
-  else:
-    for idx, bundle in actrset.pairs:
-      NVIC.NVIC_ISPR[idx] = bundle
-
 # TODO: add the naked pragma
-proc dispatch(schd: Scheduler, irqNmbr: static InterruptNmbr) =
-  ## Dispatches the next event to the actr with the given irqNmbr.
+proc dispatchIrq[N: static InterruptNmbr]() =
+  ## Dispatches the next event to the actr with irqNmbr N.
   ## ATTENTION: This procedure is called in the handler context
-  const actr = schd.getActr(irqNmbr)
+  ## This procedure's only use is to be placed in the vector table.
+  const actr = getActr(N)
+  schd.dispatch(N)
   let
     # FIXME: put these in the named registers
     R0 = actr.popEvent()
     LR = actr.stateHandler
     # TODO: return from interrupt
-
-# Example:
-proc dispatchIrq17(schd: Scheduler) =
-  ## Declares a dispatch procedure for the actr with irqNmbr 17.
-  ## This procedure's only use is to be placed in the vector table.
-  schd.dispatch(17)

@@ -16,7 +16,7 @@ template CRIT_EXIT() =
 template schedule(self: Actr) =
   ## Schedules the actr for execution by pending its interrupt in the NVIC
   # NOTE: The caller MUST be in a critical section in privileged mode
-  SIG.STIR.INTID(self.irqNum)
+  SIG.STIR.INTID(self.irqNmbr)
 
 proc activate*(self: var Actr) =
   ## Pops an event within a critical section and calls the actr's event handler.
