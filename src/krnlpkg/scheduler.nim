@@ -6,7 +6,7 @@
 ## to schedule actrs.  Unused interrupts leave holes in the vector table.
 ## KRNL fills these holes with a procedure to dispatch an event
 ## to a specific actr's event handler.
-## Scheduling an actr to run, then, is simply a matter of triggering
+## Scheduling an actr to run, then, is simply a matter of pending
 ## the appropriate interrupt.  This is done either by writing to STIR.INTID
 ## when only one actr is scheduled or by writing to multiple NVIC.NVIC_ISPR[]
 ## registers when multiple actrs are scheduled.
@@ -16,14 +16,11 @@
 
 import std/math
 import armv7m/[nvic, sig]
-import nrf52840/device
 import bitflags, actr_set, types
 
-const PLAT_IRQ_CNT = 256 # placeholder; shold come from device import
-
 type Scheduler = object
-  actrRegistry: array[PLAT_IRQ_CNT, ref Actr]
-  enabled: array[PLAT_IRQ_CNT, bool]
+  actrRegistry: array[plat.platInterruptCount, ref Actr]
+  enabled: array[plat.platInterruptCount, bool]
 
 proc registerActr(schd: var Scheduler, actr: ref Actr) =
   ## Registers a actr with this kernel
@@ -55,19 +52,19 @@ proc schedule(schd: Scheduler, actrset: ActrSet) =
   ## In an ActrSet, the bit index corresponds to the actr's irqNmbr.
   ## The ActrSet set usually comes from the the subscribers to a signal.
   when true:
-    when PLAT_IRQ_CNT > 0:
+    when plat.platInterruptCount > 0:
       NVIC.NVIC_ISPR[0] = actrset[0]
-    when PLAT_IRQ_CNT > 32:
+    when plat.platInterruptCount > 32:
       NVIC.NVIC_ISPR[1] = actrset[1]
-    when PLAT_IRQ_CNT > 64:
+    when plat.platInterruptCount > 64:
       NVIC.NVIC_ISPR[2] = actrset[2]
       NVIC.NVIC_ISPR[3] = actrset[3]
-    when PLAT_IRQ_CNT > 128:
+    when plat.platInterruptCount > 128:
       NVIC.NVIC_ISPR[4] = actrset[4]
       NVIC.NVIC_ISPR[5] = actrset[5]
       NVIC.NVIC_ISPR[6] = actrset[6]
       NVIC.NVIC_ISPR[7] = actrset[7]
-    # TODO: when PLAT_IRQ_CNT > 256
+    # TODO: when plat.platInterruptCount > 256
   else:
     for idx, bundle in actrset.pairs:
       NVIC.NVIC_ISPR[idx] = bundle
