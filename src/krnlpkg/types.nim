@@ -5,8 +5,8 @@
 import plat, proj, ringque
 
 type
-  ExceptionNmbr* = distinct uint16 # ARM Exception number
-  InterruptNmbr* = distinct uint16 # ARM Interrupt number
+  ExceptionNmbr* = 1 .. 16 + plat.platInterruptCount # ARM Exception number
+  InterruptNmbr* = 0 .. plat.platInterruptCount - 1 # ARM Interrupt number
 
   ActrPriority* = uint8 # 0 is the lowest priority
   NvicPriority* = uint8 # 0 is the highest priority
@@ -47,7 +47,8 @@ type
 
 converter toInterruptNumber*(exnNmbr: ExceptionNmbr): InterruptNmbr =
   ## Converts an exception number to an interrupt number
-  InterruptNmbr(exnNmbr.uint16 - 16'u16)
+  assert exnNmbr.int >= 16, "Exceptions lower than 16 are not interrupts"
+  InterruptNmbr(exnNmbr.int - 16)
 
 converter toNvicPriority(prio: ActrPriority): NvicPriority =
   ## Converts ActrPriority where 0 is the lowest priority
