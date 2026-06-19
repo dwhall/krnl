@@ -39,26 +39,3 @@ else:
   proc debugRTTprintf*(bufferIndex: cint, format: cstring) {.inline, varargs.} = discard
   proc debugPrint*(s: string, idx: cint = 0) = discard
   proc debugPrint*(buf: openArray[char], idx: cint = 0) = discard
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -23,7 +23,7 @@ import bitflags, types
 type SignalRegistry[Nb: static uint16] = Table[Signal, Bitflags[Nb]]
 
 proc newRegistry*[Nb](): SignalRegistry[Nb] =
-  result = Table[Signal, Bitflags[Nb]]()
+  Table[Signal, Bitflags[Nb]]()
 
 proc contains*[Nb](registry: SignalRegistry[Nb], sig: Signal): bool =
   registry.hasKey(sig)

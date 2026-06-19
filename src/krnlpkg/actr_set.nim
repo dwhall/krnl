@@ -6,8 +6,8 @@
 ## The quantity of interrupt numbers available depends on the platform/processor.
 ## The number of bits used in the Bitflags type must be determined at compile time.
 
-import bitflags
-import plat
+import armv7m/nvic
+import bitflags, plat
 
 type ActrSet* = Bitflags[plat.platInterruptCount]
 

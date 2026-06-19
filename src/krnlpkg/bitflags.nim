@@ -12,8 +12,8 @@
 
 import std/math
 
-type Bitflags*[Nb: static uint16] = object
-  flags: array[ceilDiv(Nb, 32'u16), uint32]
+type Bitflags*[Nb: static int] = object
+  flags: array[(Nb + 31) div 32, uint32]
   card: uint16 # number of bits currently set
 
 proc cap*(self: Bitflags): uint16 =
