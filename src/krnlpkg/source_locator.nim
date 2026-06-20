@@ -8,9 +8,9 @@ type SourceLocator* = object
   ## in a large project.  `domain` is the broadest, `package` is the
   ## middle scope, and `module` is the narrowest scope.  SourceLocator
   ## is intended for use with identifying such items as Signals and Data
-  domain*: string
-  package*: string
-  module*: string
+  domain: string
+  package: string
+  module: string
 
 converter toSourceLocator*(dottedLocator: static string): SourceLocator =
   assert dottedLocator.count('.') == 2, "Expecting exactly two `.` in dottedLocator"

@@ -2,7 +2,6 @@
 ##
 ## KRNL Signal
 
-import std/strutils
 import source_locator, types
 
 type SignalKind* = enum
@@ -36,10 +35,5 @@ func Sig*(
     sigEnum: static uint32,
     kind: static SignalKind = SigShort,
 ): Signal {.compileTime.} =
-  assert dottedLocator.count('.') == 2, "Expecting exactly two `.` in dottedLocator"
-  assert dottedLocator.count(' ') == 0, "Expecting no spaces ` ` in dottedLocator"
-  const
-    sigSource = dottedLocator.split('.')
-    locator =
-      SourceLocator(domain: sigSource[0], package: sigSource[1], module: sigSource[2])
+  const locator = toSourceLocator(dottedLocator)
   Sig(locator, sigEnum, kind)
