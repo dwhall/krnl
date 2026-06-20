@@ -1,4 +1,4 @@
-# Copyright 2026 Dean Hall See LICENSE for details
+## Copyright 2026 Dean Hall See LICENSE for details
 
 import unittest2
 
@@ -6,7 +6,7 @@ import unittest2
 include signal
 
 test "SHOULD be able to create a signal":
-  check compiles Sig("one", "two", "three", 42)
+  check compiles Sig("one.two.three", 42)
 
 test "dotted signal source SHOULD be able to create a signal":
   check Sig("one.two.three", 42) is Signal

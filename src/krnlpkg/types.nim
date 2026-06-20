@@ -11,22 +11,6 @@ type
   ActrPriority* = uint8 # 0 is the lowest priority
   NvicPriority* = uint8 # 0 is the highest priority
 
-  ## An Actr is an active object with an event handler that processes events
-  ## serialized in FIFO fashion in its event queue.  An Actr can emit events,
-  ## spawn child Actrs and change its event handler for the next event.
-  ##
-  ## N is count of items in the event queue.
-  ## Child Actrs have no event queue because they process
-  ## the event directly dispatched from the parent.
-  ## The irqNmbr field also serves as an index into the interruptHandler
-  ## array in the VectorTable; and also as a unieq identifier
-  Actr*[N: static uint8] = object of RootObj
-    eventHandler: EventHandler
-    eventQueue: RingQue[N, Event]
-    children: seq[Actr[0]]
-    irqNmbr*: InterruptNmbr
-    priority: ActrPriority
-
   ## The Signal is a value that discriminates an Event.
   Signal* = uint32
 
@@ -38,9 +22,26 @@ type
     sig*: Signal
     val*: EventValue
 
+  ## An Actr is an active object with an event handler that processes events
+  ## serialized in FIFO fashion in its event queue.  An Actr can emit events,
+  ## spawn child Actrs and change its event handler for the next event.
+  ##
+  ## N is count of items in the event queue.
+  ## Child Actrs have no event queue because they process
+  ## the event directly dispatched from the parent.
+  ## The irqNmbr field also serves as an index into the interruptHandler
+  ## array in the VectorTable; and also as a unieq identifier
+  Actr*[N: static uint8] = object of RootObj
+    eventHandler: proc(self: Actr[N], event: Event): HandlerReturn {.nimcall.}
+    eventQueue: RingQue[N, Event]
+    # children: seq[Actr[0]] # TODO: future work
+    irqNmbr*: InterruptNmbr
+    priority: ActrPriority
+
   ## An Actr has at least one EventHandler, which may optionally transition
   ## to another EventHandler in response to an Event; forming a state machine.
-  EventHandler* = proc(self: Actr, event: Event): HandlerReturn {.nimcall.}
+  EventHandler*[N: static uint8] =
+    proc(self: Actr[N], event: Event): HandlerReturn {.nimcall.}
 
   ## Every EventHandler returns a HandlerReturn code to indicate
   ## how the event was processed.
