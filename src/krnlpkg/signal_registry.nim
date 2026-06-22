@@ -18,7 +18,7 @@
 import std/tables
 import bitflags, types
 
-## N is the number of bits in the bitflags, which should be the number of
+## Nb is the number of bits in the bitflags, which should be the number of
 ## interrupts in the system rounded up to the nearest multiple of 32
 type SignalRegistry[Nb: static int] = Table[Signal, Bitflags[Nb]]
 
@@ -53,5 +53,7 @@ iterator pairs*[Nb](
   ## Yields all bitflags for the given signal as (wordIdx, bitflags.uint32)
   if sig in registry:
     let bitflags = registry[sig]
-    for i in 0'u8 ..< bitflags.len:
-      yield (i, bitflags[i])
+    var idx = 0'u16
+    for bf in bitflags:
+      yield (idx, bf)
+      inc idx

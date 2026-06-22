@@ -26,3 +26,15 @@ test "SHOULD allow multiple actrs to subscribe to the same signal":
   r.subscribe(sig, actr2.irqNmbr)
   check actr1.irqNmbr.uint16 in r[sig]
   check actr2.irqNmbr.uint16 in r[sig]
+
+test "SHOULD be able to iterate via .pairs(sig)":
+  var r = newRegistry[128]()
+  let sig = Signal(42)
+  r.register(sig)
+  r.subscribe(sig, 20)
+  r.subscribe(sig, 50)
+  r.subscribe(sig, 120)
+  var n = 0
+  for (idx, bf) in r.pairs(sig):
+    inc n
+  check n == 4

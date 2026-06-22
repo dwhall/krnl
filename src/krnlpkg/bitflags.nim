@@ -53,6 +53,10 @@ proc isEmpty*(self: Bitflags): bool =
   ## Returns true if no flags are set in the bitflags, false otherwise
   self.card == 0
 
+iterator items*(self: Bitflags): uint32 =
+  for i in self.flags:
+    yield i
+
 proc `[]`*(self: Bitflags, i: uint8): uint32 =
   ## Returns the i-th 32-bit wide group of flags, where i is in the range [0, Nb div 32)
   assert i < self.flags.len.uint16
