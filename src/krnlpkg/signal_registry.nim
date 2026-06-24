@@ -20,7 +20,7 @@ import bitflags, types
 
 ## Nb is the number of bits in the bitflags, which should be the number of
 ## interrupts in the system rounded up to the nearest multiple of 32
-type SignalRegistry[Nb: static int] = Table[Signal, Bitflags[Nb]]
+type SignalRegistry*[Nb: static int] = Table[Signal, Bitflags[Nb]]
 
 proc newRegistry*[Nb](): SignalRegistry[Nb] =
   Table[Signal, Bitflags[Nb]]()

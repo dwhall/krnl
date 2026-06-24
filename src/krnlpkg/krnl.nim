@@ -15,14 +15,20 @@ var k: Krnl
 proc init*() =
   k.sigReg = newRegistry[plat.platInterruptCount]()
 
-proc registerActor*(actrAddr: pointer) =
+proc registerActor*(actrAddr: pointer): uint32 =
+  ## Register the actor with the kernel, give it an interrupt slot
+  ## so it may be activated by pending an interrupt.
+  ## Returns ... TBD
   # Temporary kernel-side adapter for the RegisterActor syscall path.
-  # TODO: wire to full scheduler-backed actor registration.
   assert actrAddr != nil
-  k.actrReg.add(actrAddr) # temporary stand-in
+  k.actrReg.add(actrAddr) # temporary
+  result = 0'u32 # temporary type and value
 
-proc registerSignal*(sig: Signal) =
+proc registerSignal*(sig: Signal): uint32 =
+  ## Register the signal with the kernel
+  ## Returns ... TBD
   k.sigReg.register(sig)
+  result = 0'u32 # temporary type and value
 
 func runForever*() {.noreturn.} =
   while true:
