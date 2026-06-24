@@ -9,3 +9,6 @@ export boot, debugPrint
 
 import krnlpkg/krnl
 export krnl
+
+import krnlpkg/syscall
+export syscall
