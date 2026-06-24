@@ -4,7 +4,7 @@
 ##
 
 import armv7m/core
-import plat, signal_registry, types
+import plat, signal_registry, types, namespace
 
 type Krnl = object
   sigReg: SignalRegistry[plat.platInterruptCount]
@@ -24,11 +24,10 @@ proc registerActor*(actrAddr: pointer): uint32 =
   k.actrReg.add(actrAddr) # temporary
   result = 0'u32 # temporary type and value
 
-proc registerSignal*(sig: Signal): uint32 =
-  ## Register the signal with the kernel
-  ## Returns ... TBD
-  k.sigReg.register(sig)
-  result = 0'u32 # temporary type and value
+proc registerSignals*(nsHash: NamespaceHash, maxSigEnum: uint32): SigPubToken =
+  ## Register a series of signals with the kernel.
+  ## Returns a token granting access to publish the signals
+  k.sigReg.register(nsHash, maxSigEnum)
 
 func runForever*() {.noreturn.} =
   while true:

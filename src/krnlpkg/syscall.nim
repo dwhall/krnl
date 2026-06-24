@@ -4,13 +4,13 @@
 ##
 
 import armv7m/core
-import krnl, types
+import krnl, types, namespace, signal_registry
 
 type
   SyscallId* = enum
     SyscallInvalid
     SyscallRegisterActor
-    SyscallRegisterSignal
+    SyscallRegisterSignals
 
   SyscallArgs* = object
     case syscallId*: SyscallId
@@ -18,8 +18,9 @@ type
       discard
     of SyscallRegisterActor:
       actrAddr*: pointer
-    of SyscallRegisterSignal:
-      sig*: Signal
+    of SyscallRegisterSignals:
+      nsHash*: NamespaceHash
+      maxSigEnum*: uint32
 
   SyscallRetval* = object
     case syscallId*: SyscallId
@@ -27,8 +28,8 @@ type
       discard
     of SyscallRegisterActor:
       placeholderActor: uint32 # irqNmbr?
-    of SyscallRegisterSignal:
-      placeholderSignal: uint32 # sigHandle?
+    of SyscallRegisterSignals:
+      token: SigPubToken
 
   StackedFrame = object
     r0: uint32
@@ -75,8 +76,9 @@ proc syscallRegisterActor*(actrAddr: pointer): SyscallRetval =
   let args = SyscallArgs(syscallId: SyscallRegisterActor, actrAddr: actrAddr)
   syscall(addr args)
 
-proc syscallRegisterSignal*(sig: Signal): SyscallRetval =
-  let args = SyscallArgs(syscallId: SyscallRegisterSignal, sig: sig)
+proc syscallRegisterSignal*(dottedNames: static string, sig: Signal): SyscallRetval =
+  const nsHash = toNamespaceHash(dottedNames)
+  let args = SyscallArgs(syscallId: SyscallRegisterSignals, nsHash: nsHash, sig: sig)
   syscall(addr args)
 
 proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallRetval {.inline.} =
@@ -87,8 +89,8 @@ proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallRetval {.inline.} =
   case result.syscallId
   of SyscallRegisterActor:
     result.placeholderActor = registerActor(pargs[].actrAddr)
-  of SyscallRegisterSignal:
-    result.placeholderSignal = registerSignal(pargs[].sig)
+  of SyscallRegisterSignals:
+    result.token = registerSignals(pargs[].nsHash, pargs[].maxSigEnum)
   else:
     discard
 

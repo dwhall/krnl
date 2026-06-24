@@ -16,11 +16,11 @@
 ##
 
 import std/tables
-import bitflags, types
+import bitflags, types, namespace
 
-## Nb is the number of bits in the bitflags, which should be the number of
-## interrupts in the system rounded up to the nearest multiple of 32
-type SignalRegistry*[Nb: static int] = Table[Signal, Bitflags[Nb]]
+type
+  SigPubToken* = uint32 # TODO: make distinct?
+  SignalRegistry*[Nb: static int] = Table[Signal, Bitflags[Nb]]
 
 proc newRegistry*[Nb](): SignalRegistry[Nb] =
   Table[Signal, Bitflags[Nb]]()
@@ -28,10 +28,15 @@ proc newRegistry*[Nb](): SignalRegistry[Nb] =
 proc contains*[Nb](registry: SignalRegistry[Nb], sig: Signal): bool =
   registry.hasKey(sig)
 
-proc register*[Nb](registry: var SignalRegistry[Nb], sig: Signal) =
+proc register*[Nb](
+    registry: var SignalRegistry[Nb], nsHash: NamespaceHash, maxSigEnum: uint32
+): SigPubToken =
   ## Registers a signal in the registry if it doesn't already exist
-  assert sig notin registry, "Signal already registered"
-  registry[sig] = Bitflags[Nb]()
+# TODO: refactor to new container
+#  assert sig notin registry, "Signal already registered"
+  let bf = Bitflags[Nb]()
+#  registry[sig] = bf
+  cast[SigPubToken](0) # TODO: improve token value (not related to address)
 
 proc subscribe*[Nb](
     registry: var SignalRegistry[Nb], sig: Signal, irqNmbr: InterruptNmbr

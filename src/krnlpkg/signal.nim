@@ -26,6 +26,6 @@ func Sig*(
       sigEnumMask = 0x3FF'u32
   assert sigEnum <= sigEnumMask, "sigEnum exceeds bitfield limit"
   const
-    namespace = toNamespace(dottedNames)
-    sigIdent = sigKindMask or (namespace.hash.uint32 and sigIdentMask)
+    nsHash = toNamespaceHash(dottedNames)
+    sigIdent = sigKindMask or (nsHash.uint32 and sigIdentMask)
   Signal(sigIdent or (sigEnum and sigEnumMask))
