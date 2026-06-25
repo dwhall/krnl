@@ -5,7 +5,7 @@ import std/hashes
 import unittest2
 
 # module under test:
-include namespace
+import namespace
 
 test "NS32 and NS64 identifiers SHOULD exist":
   check declared NS32
@@ -28,3 +28,6 @@ test "A NS64-produced hash value SHOULD compare for equality":
 test "A NS32 and NS64 SHOULD be case insensitive":
   check NS32"world.hello.there" == NS32"WORLD.Hello.there"
   check NS64"one.two.three" == NS64"ONE.TWO.THREE"
+
+test "Empty NS32() SHOULD produce a hash using the domain.package.name of the caller":
+  check NS32() == NS32("test.package.test_namespace")
