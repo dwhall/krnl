@@ -15,11 +15,11 @@ var k: Krnl
 proc init*() =
   k.sigReg = newRegistry[plat.platInterruptCount]()
 
-proc registerActor*(actrAddr: pointer) =
+proc registerActr*(actrAddr: pointer) =
   ## Register the actor with the kernel, give it an interrupt slot
   ## so it may be activated by pending an interrupt.
   ## Returns ... TBD
-  # Temporary kernel-side adapter for the RegisterActor syscall path.
+  # Temporary kernel-side adapter for the RegisterActr syscall path.
   assert actrAddr != nil
   k.actrReg.add(actrAddr) # temporary
 

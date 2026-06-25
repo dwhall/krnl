@@ -85,30 +85,30 @@ developer's responsibility.
 
 ## Signal Subscription
 
-Actors subscribe to specific `Signal` values via an SVC to KRNL. Before recording the
+Actrs subscribe to specific `Signal` values via an SVC to KRNL. Before recording the
 subscription, KRNL validates:
 
 1. The source hash matches a registered entry.
 2. The signal index is ≤ `maxIndex` for that entry.
 
-If validation fails, the subscription is rejected. Actors must be designed to tolerate
+If validation fails, the subscription is rejected. Actrs must be designed to tolerate
 a source being temporarily absent (e.g., during a module replacement).
 
 ### Subscriber Table
 
 The subscriber table maps `Signal → bitflags of exception indices`, where each set bit
-corresponds to the NVIC exception index of a subscribed Actor. When an Actor publishes
+corresponds to the NVIC exception index of a subscribed Actr. When an Actr publishes
 an event:
 
-1. Actor calls KRNL via SVC.
+1. Actr calls KRNL via SVC.
 2. KRNL looks up the exception index bitflag for that `Signal`.
-3. KRNL copies the `Event` into each subscribed Actor's event queue.
-4. KRNL sets each subscribed Actor's NVIC pending bit to schedule execution.
+3. KRNL copies the `Event` into each subscribed Actr's event queue.
+4. KRNL sets each subscribed Actr's NVIC pending bit to schedule execution.
 
 ### KRNL Broadcast Signals
 
-Signals originating from KRNL are delivered to all Actors without requiring subscription.
-Actors receive these signals unconditionally; whether they are processed is up to the Actor.
+Signals originating from KRNL are delivered to all Actrs without requiring subscription.
+Actrs receive these signals unconditionally; whether they are processed is up to the Actr.
 
 Examples of KRNL broadcast signals include the source re-init notification described above.
 

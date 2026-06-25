@@ -1,7 +1,7 @@
 |word       |abbreviation |use
 |----       |----   |----
 |actor      | actr  | As in, the [Actor Model](https://en.wikipedia.org/wiki/Actor_model), except its core communication is via Events
-|awsm       | awsm  | Actor With State Machine
+|awsm       | awsm  | Actr With State Machine
 |bitflag    | bflg  | A sequence of contiguous bits acting as individual boolean-like state
 |bitfield   | bfld  | A sequence of configuous bits grouped for a specific representation
 |config[uration]    | cnfg | Data used to affect operation that requires a restart if changed (related: setting)

@@ -36,8 +36,8 @@ proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallRetval {.inline.} =
   else:
     result.syscallId = pargs[].syscallId
   case result.syscallId
-  of SyscallRegisterActor:
-    registerActor(pargs[].actrAddr)
+  of SyscallRegisterActr:
+    registerActr(pargs[].actrAddr)
   of SyscallRegisterSignals:
     result.token = registerSignals(pargs[].nsHash, pargs[].maxSigEnum)
   else:

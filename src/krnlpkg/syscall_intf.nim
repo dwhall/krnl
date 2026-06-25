@@ -8,14 +8,14 @@ import namespace, signal_registry
 type
   SyscallId* = enum
     SyscallInvalid
-    SyscallRegisterActor
+    SyscallRegisterActr
     SyscallRegisterSignals
 
   SyscallArgs* = object
     case syscallId*: SyscallId
     of SyscallInvalid:
       discard
-    of SyscallRegisterActor:
+    of SyscallRegisterActr:
       actrAddr*: pointer
     of SyscallRegisterSignals:
       nsHash*: NamespaceHash
@@ -25,7 +25,7 @@ type
     case syscallId*: SyscallId
     of SyscallInvalid:
       discard
-    of SyscallRegisterActor:
+    of SyscallRegisterActr:
       discard
     of SyscallRegisterSignals:
       token*: SigPubToken
@@ -48,8 +48,8 @@ template syscall(syscallArgs: ptr SyscallArgs): SyscallRetval =
   else:
     {.error: "syscall is only supported for ARM targets".}
 
-proc syscallRegisterActor*(actrAddr: pointer): SyscallRetval =
-  let args = SyscallArgs(syscallId: SyscallRegisterActor, actrAddr: actrAddr)
+proc syscallRegisterActr*(actrAddr: pointer): SyscallRetval =
+  let args = SyscallArgs(syscallId: SyscallRegisterActr, actrAddr: actrAddr)
   syscall(addr args)
 
 proc syscallRegisterSignal*(dottedNames: static string, maxSigEnum: uint32): SyscallRetval =
