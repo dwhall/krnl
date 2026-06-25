@@ -28,7 +28,7 @@ proc contains*[Nb](registry: SignalRegistry[Nb], sig: Signal): bool =
   registry.hasKey(sig)
 
 proc register*[Nb](
-    registry: var SignalRegistry[Nb], nsHash: NamespaceHash, maxSigEnum: uint32
+    registry: var SignalRegistry[Nb], nsHash: NamespaceHash32, maxSigEnum: uint32
 ) =
   ## Registers a signal in the registry if it doesn't already exist
 # TODO: refactor to new container

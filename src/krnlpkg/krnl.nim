@@ -23,7 +23,7 @@ proc registerActor*(actrAddr: pointer) =
   assert actrAddr != nil
   k.actrReg.add(actrAddr) # temporary
 
-proc registerSignals*(nsHash: NamespaceHash, maxSigEnum: uint32) =
+proc registerSignals*(nsHash: NamespaceHash32, maxSigEnum: uint32) =
   ## Register a series of signals with the kernel.
   k.sigReg.register(nsHash, maxSigEnum)
 

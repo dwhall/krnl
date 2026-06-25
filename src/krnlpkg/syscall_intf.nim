@@ -19,7 +19,7 @@ type
     of SyscallRegisterActor:
       actrAddr*: pointer
     of SyscallRegisterSignals:
-      nsHash*: NamespaceHash
+      nsHash*: NamespaceHash32
       maxSig*: uint32
 
   SyscallRetval* = object
@@ -55,7 +55,7 @@ proc syscallRegisterActor*(actrAddr: pointer): SyscallRetval =
   syscall(addr args)
 
 proc syscallRegisterSignals*(dottedNames: static string, maxSig: uint32): SyscallRetval =
-  const nsHash = toNamespaceHash(dottedNames)
+  const nsHash = NS32(dottedNames)
   let args = SyscallArgs(syscallId: SyscallRegisterSignals, nsHash: nsHash, maxSig: maxSig)
   syscall(addr args)
 

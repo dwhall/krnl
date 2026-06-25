@@ -2,6 +2,7 @@
 ##
 ## KRNL Signal
 
+import std/strutils
 import namespace, types
 
 type SignalKind* = enum
@@ -25,7 +26,8 @@ func Sig*(
       sigIdentMask = 0x7FFF_FC00'u32
       sigEnumMask = 0x3FF'u32
   assert sigEnum <= sigEnumMask, "sigEnum exceeds bitfield limit"
+  assert dottedNames.count('.') == 2
   const
-    nsHash = toNamespaceHash(dottedNames)
+    nsHash = NS32(dottedNames)
     sigIdent = sigKindMask or (nsHash.uint32 and sigIdentMask)
   Signal(sigIdent or (sigEnum and sigEnumMask))

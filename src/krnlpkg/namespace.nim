@@ -1,38 +1,40 @@
 ## Copyright 2026 Dean Hall See LICENSE for details
 ##
+## A string composed of identifiers joined by dots ('.')
+## forms the concept of a namespace.  An example of a dottedString:
+##   "domain.package.module"
+## We hash the names, not including the dots, with case insensitivity
+## to produce a somewhat unique 32- or 64-bit value from the dottedString.
+##
 
-import std/[hashes, strutils]
+import std/[hashes, os, strutils]
 
-type
-  Namespace = object
-    ## A Namespace is an identifier that combines with a local identifier
-    ## resulting in a new identifier that is sufficiently unique to the needed scope
-    ##
-    ## The implementation of this type is kept private (opaque) on purpose.  Only the
-    ## toNamespace() converter is exported.  This allows us to change the
-    ## implementation, if necessary, in the future and the compatibility boundary
-    ## is the signature of the toNamespace() coverter.  At this time, Namespaces
-    ## are planned for use in Signals and pub-sub Data items.
-    domain: string
-    package: string
-    module: string
+const domain {.strdefine.} = ""
+static:
+  assert domain != "", "domain must be defined by the build."
 
-  NamespaceHash* = distinct uint32
+type NamespaceHash32* = uint32
 
-converter toNamespace(dottedNames: static string): Namespace =
-  assert dottedNames.count('.') == 2, "Expecting exactly two `.` in dottedNames"
-  assert dottedNames.count(' ') == 0, "Expecting no spaces ` ` in dottedNames"
-  # TODO: validate as a legit identifier
-  const names = dottedNames.split('.')
-  Namespace(domain: names[0], package: names[1], module: names[2])
+func NS64*(dottedNames: static string): Hash {.compileTime.} =
+  ## A compile-time hash of a dotted namespace (case insensitive)
+  for name in dottedNames.split('.'):
+    result = result !& hashIgnoreCase(name)
 
-func hash(namespace: Namespace): Hash {.compileTime.} =
-  ## A case-insensitive hash of domain, then package, then module
-  hashIgnoreCase(namespace.domain) !& hashIgnoreCase(namespace.package) !&
-    hashIgnoreCase(namespace.module)
+func NS32*(dottedNames: static string): NamespaceHash32 {.compileTime.} =
+  ## A compile-time hash of a dotted namespace (case insensitive)
+  ## This func is intended for use as a string-prefix operator:
+  ##    NS32"dom.pkg.mod"
+  NamespaceHash32(NS64(dottedNames).uint32)
 
-converter toNamespaceHash*(dottedNames: static string): NamespaceHash =
-  const
-    ns = toNamespace(dottedNames)
-    h = hash(ns)
-  NamespaceHash(h)
+template NS32*(): NamespaceHash32 =
+  # Use the caller's filename, not this file's name
+  const moduleExt = instantiationInfo().filename.splitPath().tail
+  const module = moduleExt.split(".")[0]
+  # TODO: create way to get packageName
+  const dottedNames = domain & ".package." & module
+  NS32(dottedNames)
+
+# In case we want distinct NamespaceHash32
+# proc `==`*(left, right: NamespaceHash32): bool {.borrow.}
+# proc `==`*(left: NamespaceHash32, right: uint32): bool {.borrow.}
+# proc `==`*(left: uint32, right: NamespaceHash32): bool {.borrow.}
