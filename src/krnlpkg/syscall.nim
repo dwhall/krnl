@@ -4,18 +4,17 @@
 ##
 
 import armv7m/core
-import krnl, types, namespace, signal_registry, syscall_intf
+import krnl, syscall_intf
 
-type
-  StackedFrame = object
-    r0: uint32
-    r1: uint32
-    r2: uint32
-    r3: uint32
-    r12: uint32
-    lr: uint32
-    pc: uint32
-    xpsr: uint32
+type StackedFrame = object
+  r0: uint32
+  r1: uint32
+  r2: uint32
+  r3: uint32
+  r12: uint32
+  lr: uint32
+  pc: uint32
+  xpsr: uint32
 
 func readLr(): uint32 {.inline.} =
   asm """
@@ -39,7 +38,7 @@ proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallRetval {.inline.} =
   of SyscallRegisterActr:
     registerActr(pargs[].actrAddr)
   of SyscallRegisterSignals:
-    result.token = registerSignals(pargs[].nsHash, pargs[].maxSigEnum)
+    result.token = registerSignals(pargs[].nsHash, pargs[].maxSig)
   else:
     discard
 

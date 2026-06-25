@@ -32,11 +32,11 @@ type
   ## The irqNmbr field also serves as an index into the interruptHandler
   ## array in the VectorTable; and also as a unieq identifier
   Actr*[N: static uint8] = object of RootObj
-    eventHandler: proc(self: Actr[N], event: Event): HandlerReturn {.nimcall.}
-    eventQueue: RingQue[N, Event]
+    eventHandler*: proc(self: Actr[N], event: Event): HandlerReturn {.nimcall.}
+    eventQueue*: RingQue[N, Event]
     # children: seq[Actr[0]] # TODO: future work
     irqNmbr*: InterruptNmbr
-    priority: ActrPriority
+    priority*: ActrPriority
 
   ## An Actr has at least one EventHandler, which may optionally transition
   ## to another EventHandler in response to an Event; forming a state machine.

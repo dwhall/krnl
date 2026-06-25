@@ -4,14 +4,22 @@
 
 import namespace, types
 
-type SignalKind* = enum
-  SigShort = 0 # 23-bit signal identity, 8-bit enumerator
-  SigLong = 1 # 21-bit signal identity, 10-bit enumerator
+type 
+  SignalKind* = enum
+    SigShort = 0 # 23-bit signal identity, 8-bit enumerator
+    SigLong = 1 # 21-bit signal identity, 10-bit enumerator
+  SigTuple* = tuple[nsHash: NamespaceHash, sig: uint32]
+
+# func Sig*(
+#     dottedNames: static string,
+#     sigEnum: static uint32
+# ): SigTuple {.compileTime.} =
+#   tuple[nsHash: toNamespaceHash(dottedNames), sig: sigEnum]
 
 func Sig*(
     dottedNames: static string,
     sigEnum: static uint32,
-    kind: static SignalKind = SigShort,
+    kind: static SignalKind = SigShort
 ): Signal {.compileTime.} =
   ## Composes a signal from the dotted namespace (case insensitive) and signal enum.
   when kind == SigShort:
@@ -29,3 +37,8 @@ func Sig*(
     nsHash = toNamespaceHash(dottedNames)
     sigIdent = sigKindMask or (nsHash.uint32 and sigIdentMask)
   Signal(sigIdent or (sigEnum and sigEnumMask))
+
+# TODO: await clarification on (dottednames, sig) vs (nsHash, sig)
+# converter toSignal*(sigTuple: SigTuple): Signal =
+#   ## Converts a SigTuple to a Signal
+#   Sig(sigTuple.nsHash.uint32 or sigTuple.sig)
