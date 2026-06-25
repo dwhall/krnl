@@ -1,36 +1,12 @@
 ## Copyright 2026 Dean Hall See LICENSE for details
 ##
-## KRNL: System call interface and SVC dispatcher
+## KRNL: System call implementation and SVC dispatcher
 ##
 
 import armv7m/core
-import krnl, types, namespace, signal_registry
+import krnl, types, namespace, signal_registry, syscall_intf
 
 type
-  SyscallId* = enum
-    SyscallInvalid
-    SyscallRegisterActor
-    SyscallRegisterSignals
-
-  SyscallArgs* = object
-    case syscallId*: SyscallId
-    of SyscallInvalid:
-      discard
-    of SyscallRegisterActor:
-      actrAddr*: pointer
-    of SyscallRegisterSignals:
-      nsHash*: NamespaceHash
-      maxSigEnum*: uint32
-
-  SyscallRetval* = object
-    case syscallId*: SyscallId
-    of SyscallInvalid:
-      discard
-    of SyscallRegisterActor:
-      placeholderActor: uint32 # irqNmbr?
-    of SyscallRegisterSignals:
-      token: SigPubToken
-
   StackedFrame = object
     r0: uint32
     r1: uint32
@@ -54,33 +30,6 @@ func getStackedFramePtr(excReturn: uint32): ptr StackedFrame {.inline.} =
   else:
     cast[ptr StackedFrame](PSP.read().uint32)
 
-template syscall*(syscallArgs: ptr SyscallArgs): SyscallRetval =
-  ## Issues an SVC with R0 = ptr to SyscallArgs, R1 = ptr to caller-owned
-  ## SyscallRetval buffer. The syscall impl writes the result directly into result;
-  ## no value is communicated back via R0.
-  when defined(arm):
-    let pRetval = addr result
-    asm """
-      mov r0, %0
-      mov r1, %1
-      svc #0
-      :
-      : "r"(`syscallArgs`), "r"(`pRetval`)
-      : "r0", "r1", "memory"
-    """
-    result
-  else:
-    {.error: "syscall is only supported for ARM targets".}
-
-proc syscallRegisterActor*(actrAddr: pointer): SyscallRetval =
-  let args = SyscallArgs(syscallId: SyscallRegisterActor, actrAddr: actrAddr)
-  syscall(addr args)
-
-proc syscallRegisterSignal*(dottedNames: static string, sig: Signal): SyscallRetval =
-  const nsHash = toNamespaceHash(dottedNames)
-  let args = SyscallArgs(syscallId: SyscallRegisterSignals, nsHash: nsHash, sig: sig)
-  syscall(addr args)
-
 proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallRetval {.inline.} =
   if pargs == nil:
     result.syscallId = SyscallInvalid
@@ -88,7 +37,7 @@ proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallRetval {.inline.} =
     result.syscallId = pargs[].syscallId
   case result.syscallId
   of SyscallRegisterActor:
-    result.placeholderActor = registerActor(pargs[].actrAddr)
+    registerActor(pargs[].actrAddr)
   of SyscallRegisterSignals:
     result.token = registerSignals(pargs[].nsHash, pargs[].maxSigEnum)
   else:
