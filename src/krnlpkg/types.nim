@@ -2,7 +2,7 @@
 ##
 ## KRNL broadly used types and converters
 
-import plat, proj
+import plat, proj, signal
 
 type
   ExceptionNmbr* = 1 .. 16 + plat.platInterruptCount # ARM Exception number
@@ -10,9 +10,6 @@ type
 
   ActrPriority* = uint8 # 0 is the lowest priority
   NvicPriority* = uint8 # 0 is the highest priority
-
-  ## The Signal is a value that discriminates an Event.
-  Signal* = uint32
 
   ## Events are the fundamental and primary communication between Actrs.
   ## Events are posted from one Actr to a child Actr,

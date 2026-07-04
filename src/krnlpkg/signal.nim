@@ -3,11 +3,15 @@
 ## KRNL Signal
 
 import std/strutils
-import namespace, types
+import namespace
 
-type SignalKind* = enum
-  SigShort = 0 # 23-bit signal identity, 8-bit enumerator
-  SigLong = 1 # 21-bit signal identity, 10-bit enumerator
+type
+  ## A Signal is a value that discriminates an Event.
+  Signal* = uint32
+
+  SignalKind* = enum
+    SigShort = 0 # 23-bit signal identity, 8-bit enumerator
+    SigLong = 1 # 21-bit signal identity, 10-bit enumerator
 
 func Sig*(
     dottedNames: static string,

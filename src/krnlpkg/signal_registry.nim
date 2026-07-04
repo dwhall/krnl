@@ -16,7 +16,7 @@
 ##
 
 import std/tables
-import bitflags, types, namespace
+import bitflags, signal, types, namespace
 
 type
   SignalRegistry*[Nb: static int] = Table[Signal, Bitflags[Nb]]
