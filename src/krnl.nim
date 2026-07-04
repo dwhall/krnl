@@ -2,10 +2,13 @@
 # uses this file as the main entry point of the application.
 
 import krnlpkg/types
-export ActrPriority, Event
+export ActrPriority
 
 import krnlpkg/actr
 export Actr
+
+import krnlpkg/event
+export Event
 
 import krnlpkg/signal
 export Signal

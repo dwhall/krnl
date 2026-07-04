@@ -5,7 +5,7 @@
 
 import math
 import armv7m/[core, nvic, sig]
-import plat, ringque, types
+import event, plat, ringque, types
 
 type
   ## An Actr is an active object with an event handler that processes events

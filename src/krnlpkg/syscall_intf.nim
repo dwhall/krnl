@@ -3,7 +3,7 @@
 ## KRNL: System call interface and SVC dispatcher
 ##
 
-import namespace, signal_registry, types
+import event, namespace, signal_registry
 
 type
   SyscallId* = enum

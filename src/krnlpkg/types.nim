@@ -2,7 +2,7 @@
 ##
 ## KRNL broadly used types and converters
 
-import plat, proj, signal
+import plat, proj
 
 type
   ExceptionNmbr* = 1 .. 16 + plat.platInterruptCount # ARM Exception number
@@ -10,14 +10,6 @@ type
 
   ActrPriority* = uint8 # 0 is the lowest priority
   NvicPriority* = uint8 # 0 is the highest priority
-
-  ## Events are the fundamental and primary communication between Actrs.
-  ## Events are posted from one Actr to a child Actr,
-  ## or published so that every Actr might receive the Event.
-  ## EventValue is a project-defined datatype.
-  Event* = object
-    sig*: Signal
-    val*: EventValue
 
 converter toInterruptNumber*(exnNmbr: ExceptionNmbr): InterruptNmbr =
   ## Converts an exception number to an interrupt number
