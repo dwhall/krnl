@@ -11,9 +11,12 @@
 ##     B1.5 Armv7-M exception model
 ##
 
-import types, plat
+import plat
 
 type
+  ExceptionNmbr* = 1 .. 16 + plat.platInterruptCount # ARM Exception number
+  InterruptNmbr* = 0 .. plat.platInterruptCount - 1 # ARM Interrupt number
+
   ExceptionHandler = proc()
   InterruptHandler = proc()
   VectorTable[N: static uint] = object
@@ -26,6 +29,11 @@ var vt: VectorTable[plat.platInterruptCount]
 
 # The Flash-based Vector Table
 let c_vectorTable {.importc: "vectorTable".}: VectorTable[plat.platInterruptCount]
+
+converter toInterruptNumber*(exnNmbr: ExceptionNmbr): InterruptNmbr =
+  ## Converts an exception number to an interrupt number
+  assert exnNmbr.int >= 16, "Exceptions lower than 16 are not interrupts"
+  InterruptNmbr(exnNmbr.int - 16)
 
 func unusedSlot() =
   ## This procedure is used to fill unused slots in the vector table.

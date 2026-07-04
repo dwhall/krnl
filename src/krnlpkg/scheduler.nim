@@ -16,7 +16,7 @@
 
 import std/math
 import armv7m/[nvic, sig]
-import bitflags, actr_set, types
+import bitflags, actr_set, vectortable
 
 type Scheduler = object
   actrRegistry: array[plat.platInterruptCount, ref Actr]

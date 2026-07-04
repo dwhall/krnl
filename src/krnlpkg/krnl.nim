@@ -4,7 +4,7 @@
 ##
 
 import armv7m/core
-import plat, signal_registry, types, namespace
+import plat, signal_registry, namespace
 
 type Krnl = object
   sigReg: SignalRegistry[plat.platInterruptCount]
