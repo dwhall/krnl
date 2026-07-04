@@ -7,7 +7,7 @@
 ## to produce a somewhat unique 32- or 64-bit value from the dottedString.
 ##
 
-import std/[hashes, os, strutils]
+import std/[hashes, strutils]
 
 const domain {.strdefine.} = ""
 static:
@@ -26,13 +26,13 @@ func NS32*(dottedNames: static string): NamespaceHash32 {.compileTime.} =
   ##    NS32"dom.pkg.mod"
   NamespaceHash32(NS64(dottedNames).uint32)
 
-template NS32*(): NamespaceHash32 =
-  # Use the caller's filename, not this file's name
-  const moduleExt = instantiationInfo().filename.splitPath().tail
-  const module = moduleExt.split(".")[0]
-  # TODO: create way to get packageName
-  const dottedNames = domain & ".package." & module
-  NS32(dottedNames)
+# template NS32*(): NamespaceHash32 =
+#   # Use the caller's filename, not this file's name
+#   const moduleExt = instantiationInfo().filename.splitPath().tail
+#   const module = moduleExt.split(".")[0]
+#   # TODO: create way to get packageName
+#   const dottedNames = domain & ".package." & module
+#   NS32(dottedNames)
 
 # In case we want distinct NamespaceHash32
 # proc `==`*(left, right: NamespaceHash32): bool {.borrow.}
