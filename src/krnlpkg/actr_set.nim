@@ -16,7 +16,10 @@ proc schedule*(actrset: ActrSet) =
   ## In an ActrSet, the bit index corresponds to the actr's irqNmbr.
   ## The ActrSet set usually comes from the the subscribers to a signal.
   # NOTE: The caller MUST be in a critical section in privileged mode
-  when true:
+  when plat.platInterruptCount > 256:
+    for idx, bundle in actrset.pairs:
+      NVIC.NVIC_ISPR(idx).write(bundle)
+  else:
     when plat.platInterruptCount > 0:
       NVIC.NVIC_ISPR(0).write(actrset[0])
     when plat.platInterruptCount > 32:
@@ -30,6 +33,3 @@ proc schedule*(actrset: ActrSet) =
       NVIC.NVIC_ISPR(6).write(actrset[6])
       NVIC.NVIC_ISPR(7).write(actrset[7])
     # TODO: when plat.platInterruptCount > 256
-  else:
-    for idx, bundle in actrset.pairs:
-      NVIC.NVIC_ISPR(idx).write(bundle)
