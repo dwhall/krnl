@@ -16,46 +16,44 @@
 ##
 
 import std/tables
-import bitflags, signal, namespace, vectortable
+import bitflags, namespace, signal, vectortable
 
 type
-  SignalRegistry*[Nb: static int] = Table[Signal, Bitflags[Nb]]
+  SigPubToken* = uint32 # TODO: make distinct?
+  SignalRegistry*[Nb: static int] = object
+    publishers: Table[SigPubToken, SigTuple]
+    subscribers: Table[Signal, Bitflags[Nb]]
 
-proc newRegistry*[Nb](): SignalRegistry[Nb] =
-  Table[Signal, Bitflags[Nb]]()
+proc contains*[Nb](self: SignalRegistry[Nb], sig: SigTuple): bool =
+  self.publishers.hasVal(sig)
 
-proc contains*[Nb](registry: SignalRegistry[Nb], sig: Signal): bool =
-  registry.hasKey(sig)
-
-proc register*[Nb](
-    registry: var SignalRegistry[Nb], nsHash: NamespaceHash32, maxSigEnum: uint32
+proc registerSignals*[Nb](
+    self: var SignalRegistry[Nb], nsHash: NamespaceHash32, maxSig: uint32
 ) =
-  ## Registers a signal in the registry if it doesn't already exist
-# TODO: refactor to new container
-#  assert sig notin registry, "Signal already registered"
-  let bf = Bitflags[Nb]()
-#  registry[sig] = bf
+  ## Registers a range signals from 0 .. maxSig in the registry
+  self.publishers
+
 
 proc subscribe*[Nb](
-    registry: var SignalRegistry[Nb], sig: Signal, irqNmbr: InterruptNmbr
+    self: var SignalRegistry[Nb], sig: SigTuple, irqNmbr: InterruptNmbr
 ) =
-  ## Subscribes to a signal.  The given interrupt number will be scheduled
-  ## to run when the signal is published.
+  ## Subscribes to a signal.  The given interrupt number will be pended
+  ## for activation when the signal is published.
   assert sig in registry, "Signal not registered"
-  registry[sig].incl(irqNmbr.uint16)
+  self.subscribers[sig].incl(irqNmbr.uint16)
 
 proc unsubscribe*[Nb](
-    registry: SignalRegistry[Nb], sig: Signal, irqNmbr: InterruptNmbr
+    self: var SignalRegistry[Nb], sig: SigTuple, irqNmbr: InterruptNmbr
 ) =
   ## Unsubscribes from a signal
-  registry[sig].excl(irqNmbr.uint16)
+  self.subscribers[sig].excl(irqNmbr.uint16)
 
 iterator pairs*[Nb](
-    registry: SignalRegistry[Nb], sig: Signal
+    self: SignalRegistry[Nb], sig: Signal
 ): tuple[key: uint16, val: uint32] =
   ## Yields all bitflags for the given signal as (wordIdx, bitflags.uint32)
-  if sig in registry:
-    let bitflags = registry[sig]
+  if sig in self:
+    let bitflags = self[sig]
     var idx = 0'u16
     for bf in bitflags:
       yield (idx, bf)

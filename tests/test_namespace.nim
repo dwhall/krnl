@@ -15,7 +15,7 @@ test "NS32 SHOULD produce a hash value from a dottedString":
   check NS32"world.hello.there" is NamespaceHash32
   check NS64"world.hello.there" is Hash
 
-test "An NS32 result and an NS64 SHOULD NOT compile when comparing":
+test "An NS32 compare to an NS64 SHOULD NOT compile":
   check not compiles(NS32"one.two.three" == NS64"one.two.three")
 
 test "A NS32-produced hash value SHOULD compare for equality":
@@ -25,8 +25,10 @@ test "A NS32-produced hash value SHOULD compare for equality":
 test "A NS64-produced hash value SHOULD compare for equality":
   check -8863172951485739992 == NS64"WORLD.Hello.there"
 
-test "A NS32 and NS64 SHOULD be case insensitive":
+test "A NS32 SHOULD be case insensitive":
   check NS32"world.hello.there" == NS32"WORLD.Hello.there"
+
+test "A NS64 SHOULD be case insensitive":
   check NS64"one.two.three" == NS64"ONE.TWO.THREE"
 
 test "Empty NS32() SHOULD produce a hash using the domain.package.name of the caller":

@@ -22,10 +22,10 @@ proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallRetval {.inline.} =
   else:
     result.syscallId = pargs[].syscallId
   case result.syscallId
-  of SyscallRegisterActor:
-    registerActor(pargs[].actrAddr)
+  of SyscallRegisterActr:
+    registerActr(pargs[].actrAddr)
   of SyscallRegisterSignals:
-    registerSignals(pargs[].nsHash, pargs[].maxSig)
+    result.token = registerSignals(pargs[].nsHash, pargs[].maxSig)
   else:
     discard
 
