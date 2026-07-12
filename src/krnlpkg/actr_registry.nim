@@ -10,13 +10,13 @@
 ##
 
 import std/tables
-import vectortable
+import actr, vectortable
 
 type
   ActrRegistry* = object
     actrs: Table[InterruptNmbr, pointer]
 
-proc registerActr*(self: var ActrRegistry, actr: pointer, irqNmbr: InterruptNmbr) =
+proc registerActr*(self: var ActrRegistry, actr: ptr Actr, irqNmbr: InterruptNmbr) =
   ## Registers an actr with the registry.  The actr's irqNmbr is used to
   ## identify the actr in the registry and to reserve an entry in the NVIC's
   ## Vector Table for activation.

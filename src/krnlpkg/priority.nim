@@ -1,11 +1,11 @@
 ## Copyright 2026 Dean Hall See LICENSE for details
 ##
 
-import plat
+import plat, vectortable
 
 type
-  ActrPriority* = uint8 # 0 is the lowest priority
-  NvicPriority* = uint8 # 0 is the highest priority
+  ActrPriority* = range 0'u8 .. (0xFF'u8 shr plat.platNvicPriorityBits) # 0 is the lowest priority
+  NvicPriority = uint8 # 0 is the highest priority
 
 converter toNvicPriority*(prio: ActrPriority): NvicPriority =
   ## Converts ActrPriority where 0 is the lowest priority
@@ -14,3 +14,32 @@ converter toNvicPriority*(prio: ActrPriority): NvicPriority =
     ((0xFF'u32 shr plat.platNvicPriorityBits) + 1'u32 - prio) shl
       plat.platNvicPriorityBits
   )
+
+proc setPriority*(irqNmbr: InterruptNmbr, prio: ActrPriority) =
+  ## Sets the this actr's interrupt's priority
+  ## and enables the interrupt in the NVIC
+  let
+    (irqDiv4, irqMod4) = divmod(self.irqNmbr, 4'u8)
+    iprReg = NVIC.NVIC_IPR(irqDiv4)
+
+    (irqDiv32, irqMod32) = divmod(self.irqNmbr, 32'u8)
+    iserReg = NVIC.NVIC_ISER(irqDiv32)
+
+    irqBitf = 1'u32 shl irqMod32
+    nvicPrio: NvicPriority = prio # implicitly calls the converter
+
+  CRIT_ENTER()
+  # Set the priority of the interrupt associated with this Actr
+  case irqMod4
+  of 0:
+    iprReg.PRI_N0(nvicPrio).write()
+  of 1:
+    iprReg.PRI_N1(nvicPrio).write()
+  of 2:
+    iprReg.PRI_N2(nvicPrio).write()
+  of 3:
+    iprReg.PRI_N3(nvicPrio).write()
+  # TODO: clear any pending interrupt
+  # Enable the interrupt associated with this Actr
+  iserReg = irqBitf
+  CRIT_EXIT()
