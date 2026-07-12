@@ -43,15 +43,3 @@ proc disable(schd: var Scheduler, actr: ref Actr) =
   schd.enabled[actr.irqNmbr] = false
   NVIC.NVIC_ICER(regIdx).SETENA(bitIdx, 1)
 
-# TODO: add the naked pragma
-proc dispatchIrq[N: static InterruptNmbr]() =
-  ## Dispatches the next event to the actr with irqNmbr N.
-  ## ATTENTION: This procedure is called in the handler context
-  ## This procedure's only use is to be placed in the vector table.
-  const actr = getActr(N)
-  schd.dispatch(N)
-  let
-    # FIXME: put these in the named registers
-    R0 = actr.popEvent()
-    LR = actr.stateHandler
-    # TODO: return from interrupt

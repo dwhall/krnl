@@ -42,14 +42,39 @@ func unusedSlot() =
   while true:
     discard
 
-proc initVectorTable() =
-  vt.stackPointer = c_vectorTable.stackPointer
-  vt.exceptionHandler = c_vectorTable.exceptionHandler
+proc initVectorTable(self: VectorTable) =
+  self.stackPointer = c_vectorTable.stackPointer
+  self.exceptionHandler = c_vectorTable.exceptionHandler
   for i in 0 ..< plat.platInterruptCount:
-    vt.interruptHandler[i] = unusedSlot
+    self.interruptHandler[i] = unusedSlot
 
-proc setInterruptHandler(irqNmbr: InterruptNmbr, handler: InterruptHandler) =
+proc setInterruptHandler*(self: VectorTable, irqNmbr: InterruptNmbr, handler: InterruptHandler) =
   ## Sets the interrupt handler for the given interrupt number.
   assert irqNmbr.uint < plat.platInterruptCount,
     "Interrupt number exceeds project-defined limit."
-  vt.interruptHandler[irqNmbr.int] = handler
+  self.interruptHandler[irqNmbr.int] = handler
+
+proc dispatchIsr*[N: static InterruptNmbr]() {.asmNoStackFrame.} =
+  ## Dispatches the next event to the actr with irqNmbr N.
+  ## ATTENTION: This procedure is called in the handler context
+  ## This procedure's only use is to be placed in the vector table.
+  #[
+    B1.5.8 Exception return behavior
+    An exception return occurs when the processor is in Handler mode and
+    one of the following instructions loads a value of 0xFXXXXXXX into the PC:
+    * POP/LDM that includes loading the PC.
+    * LDR with PC as a destination.
+    * BX with any register.
+  ]#
+  const actr = getActr(N)
+  let
+    e = actr.popEvent()
+    handler = actr.stateHandler
+  asm """
+    mov r0, %0
+    mov lr, %1
+    ldr pc, #0xF0000000 ; return from exception
+    :
+    : "r"(`e`), "r"(`handler`)
+    : "r0", "r1", "memory"
+  """
