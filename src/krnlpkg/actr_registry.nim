@@ -11,8 +11,8 @@
 
 import actr, vectortable
 
-type ActrRegistry*[N: static uint8] = object
-  actrs: array[IrqNmbr, ptr Actr[N]]
+type ActrRegistry* = object
+  actrs: array[IrqNmbr, pointer]
 
 func registerActr*(self: var ActrRegistry, actr: ptr Actr, irqNmbr: IrqNmbr) =
   ## Registers an actr with the registry.  The actr's irqNmbr is used to
