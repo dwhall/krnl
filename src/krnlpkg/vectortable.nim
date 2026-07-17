@@ -25,10 +25,9 @@ type
     exnHandler: array[1 .. 16, ExnHandler]
     irqHandler: array[N, IrqHandler]
 
-# The RAM-based Vector Table
-var vt: VectorTable[plat.platIrqCnt]
+const invalidIrqNmbr* = IrqNmbr(0)
 
-# The Flash-based Vector Table
+# The non-volatile Vector Table used at power-on-reset; from vector_table.c
 let c_vectorTable {.importc: "vectorTable".}: VectorTable[plat.platIrqCnt]
 
 converter toInterruptNumber*(exnNmbr: ExnNmbr): IrqNmbr =
@@ -43,20 +42,27 @@ func unusedIsr() =
   while true:
     discard
 
-proc initVectorTable(self: VectorTable) =
+func initVectorTable(self: var VectorTable) =
   self.stackPointer = c_vectorTable.stackPointer
-  self.exceptionHandler = c_vectorTable.exceptionHandler
+  self.exnHandler = c_vectorTable.exnHandler
   for i in 0 ..< plat.platIrqCnt:
-    self.irqHandler[i] = unusedSlot
+    self.irqHandler[i] = unusedIsr
 
-proc setIrqHandler*(self: VectorTable, irqNmbr: IrqNmbr, handler: InterruptHandler) =
+func setIrqHandler*(self: var VectorTable, irqNmbr: IrqNmbr, handler: IrqHandler) =
   ## Sets the interrupt handler for the given interrupt number.
-  assert irqNmbr.uint < plat.platIrqCnt,
-    "Interrupt number exceeds project-defined limit."
   self.irqHandler[irqNmbr.int] = handler
 
+# TODO: enforce that this MUST be called AFTER the vector table
+# is populated with the irq handlers
+func getUnusedIrqNmbr*(self: VectorTable): IrqNmbr =
+  ## Returns the first unused interrupt slot in the vector table.
+  for i in 0 ..< plat.platIrqCnt:
+    if self.irqHandler[i] == unusedIsr:
+      return IrqNmbr(i)
+  return invalidIrqNmbr
+
 proc dispatchIsr*[N: static IrqNmbr]() {.asmNoStackFrame.} =
-  ## Dispatches the next event to the actr with irqNmbr N.
+  ## Dispatches the actr's next event to the actr with irqNmbr N.
   ## ATTENTION: This procedure is called in the handler context
   ## This procedure's only use is to be placed in the vector table.
   #[
@@ -67,15 +73,15 @@ proc dispatchIsr*[N: static IrqNmbr]() {.asmNoStackFrame.} =
     * LDR with PC as a destination.
     * BX with any register.
   ]#
-  const actr = getActr(N)
   let
-    e = actr.popEvent()
-    handler = actr.stateHandler
+    actr = getActr(N)
+    evnt = actr.popEvent()
+    handler = actr.eventHandler
   asm """
     mov r0, %0
     mov lr, %1
     ldr pc, #0xF0000000 ; return from exception
     :
-    : "r"(`e`), "r"(`handler`)
+    : "r"(`evnt`), "r"(`handler`)
     : "r0", "r1", "memory"
   """

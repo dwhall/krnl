@@ -95,7 +95,7 @@ proc dispatch(schd: Scheduler, irqNmbr: static IrqNmbr) =
   let
     # FIXME: put these in the named registers
     R0 = task.popEvent()
-    LR = task.stateHandler
+    LR = task.eventHandler
     # TODO: return from interrupt
 ```
 
@@ -153,7 +153,7 @@ NVIC fetches vector from appVT[n]
   → schedTaskCommon(n)
     → task = taskRegistry[n]          (fixed address, link-time resolved)
     → evnt = task.eventQue.pop()
-    → task.stateHandler(evnt)
+    → task.eventHandler(evnt)
   ← exception return → NVIC tail-chains to next pending task
 ```
 

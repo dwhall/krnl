@@ -9,26 +9,36 @@ import actr_registry, plat, signal_registry, namespace, vectortable
 type Krnl = object
   sigReg: SignalRegistry[plat.platIrqCnt]
   actrReg: ActrRegistry
-  # TODO: vector table
+  vectorTable: VectorTable[plat.platIrqCnt]
 
-var k: Krnl
+# One shared mutable reference set only by krnl.init()
+var k: ptr Krnl
 
-proc init*() =
-  const timerInterval = 3277 # ~100 ms
-  # TODO: configureTimer(timerInterval, timerCallback)
+func init*(self: var Krnl) =
+  k = self # this should be the ONLY place where k is set
+  self.vectorTable.initVectorTable()
 
-proc registerActr*(actrAddr: pointer) =
+func registerActr*(self: var Krnl, actrAddr: pointer) =
   ## Register the actor with the kernel, give it an interrupt slot
   ## so it may be activated by pending an interrupt.
   ## Returns ... TBD
   # Temporary kernel-side adapter for the RegisterActor syscall path.
   assert actrAddr != nil
-  let irqNmbr = IrqNmbr(0) # TODO: get irqNmbr from VectorTable
-  k.actrReg.registerActr(actrAddr, irqNmbr) # temporary
+  let irqNmbr = self.vectorTable.getUnusedIrqNmbr()
+  if irqNmbr == invalidIrqNmbr:
+    # TODO: handle situation of too many actors, not enough interrupt slots
+    return
+  self.actrReg.registerActr(actrAddr, irqNmbr)
+  self.vectorTable.setInterruptHandler(irqNmbr, dispatchIsr[irqNmbr])
 
-proc registerSignals*(nsHash: NamespaceHash32, maxSig: uint32): SigPubToken =
+func registerSignals*(self: var Krnl, nsHash: NamespaceHash32, maxSig: uint32): SigPubToken =
   ## Register a series of signals with the kernel.
-  k.sigReg.registerSignals(nsHash, maxSig)
+  self.sigReg.registerSignals(nsHash, maxSig)
+
+proc getActr*(irqNmbr: static IrqNmbr): ptr Actr {.inline.} =
+  ## Returns a pointer to the actr registered with the given interrupt number
+  ## ATTENTION: This procedure is called in the handler context
+  k.actrReg.getActr(irqNmbr)
 
 func runForever*() {.noreturn.} =
   while true:
