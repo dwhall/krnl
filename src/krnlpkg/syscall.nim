@@ -7,14 +7,7 @@ import armv7m/core
 import krnl, syscall_intf
 
 type StackedFrame = object
-  r0: uint32
-  r1: uint32
-  r2: uint32
-  r3: uint32
-  r12: uint32
-  lr: uint32
-  pc: uint32
-  xpsr: uint32
+  r0, r1, r2, r3, r12, lr, pc, xpsr: uint32
 
 proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallRetval {.inline.} =
   if pargs == nil:
@@ -30,7 +23,8 @@ proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallRetval {.inline.} =
     discard
 
 proc SVC_Handler*() {.exportc, noconv.} =
-  let mainStackPtr = cast[ptr StackedFrame](MSP.read().uint32)
-  let pargs = cast[ptr SyscallArgs](mainStackPtr.r0)
-  let pretval = cast[ptr SyscallRetval](mainStackPtr.r1)
+  let
+    mainStackPtr = cast[ptr StackedFrame](MSP.read().uint32)
+    pargs = cast[ptr SyscallArgs](mainStackPtr.r0)
+    pretval = cast[ptr SyscallRetval](mainStackPtr.r1)
   pretval[] = dispatchSyscall(pargs)

@@ -7,6 +7,8 @@
 |config[uration]    | cnfg | Data used to affect operation that requires a restart if changed (related: setting)
 |count      | cnt   | The quantitative number of a group of things (related: number, size)
 |interface  | intf  | An exported procedural interface
+|interrupt  | irq   | An exception external to the ARM core
+|ISR        | isr   | Interrupt Service Routine; the proc called by the NVIC that handles the interrupt
 |kernel     |       | Any given kernel
 |krnl       | krnl  | The name of this project
 |len        | len   | The Nim procedure that returns the count of a collection

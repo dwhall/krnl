@@ -14,28 +14,29 @@
 import plat
 
 type
-  ExceptionNmbr* = 1 .. 16 + plat.platInterruptCount # ARM Exception number
-  InterruptNmbr* = 0 .. plat.platInterruptCount - 1 # ARM Interrupt number
+  IrqNmbr* = 0..plat.platIrqCnt - 1 # interrupts are external to the ARM core
 
-  ExceptionHandler = proc()
-  InterruptHandler = proc()
+  ExnNmbr = 1..(16 + plat.platIrqCnt) # exceptions include those internal to the ARM core
+                                      # and external interrupts
+  ExnHandler = proc()
+  IrqHandler = proc()
   VectorTable[N: static uint] = object
     stackPointer: uint32
-    exceptionHandler: array[1 .. 16, ExceptionHandler]
-    interruptHandler: array[N, InterruptHandler]
+    exnHandler: array[1 .. 16, ExnHandler]
+    irqHandler: array[N, IrqHandler]
 
 # The RAM-based Vector Table
-var vt: VectorTable[plat.platInterruptCount]
+var vt: VectorTable[plat.platIrqCnt]
 
 # The Flash-based Vector Table
-let c_vectorTable {.importc: "vectorTable".}: VectorTable[plat.platInterruptCount]
+let c_vectorTable {.importc: "vectorTable".}: VectorTable[plat.platIrqCnt]
 
-converter toInterruptNumber*(exnNmbr: ExceptionNmbr): InterruptNmbr =
+converter toInterruptNumber*(exnNmbr: ExnNmbr): IrqNmbr =
   ## Converts an exception number to an interrupt number
   assert exnNmbr.int >= 16, "Exceptions lower than 16 are not interrupts"
-  InterruptNmbr(exnNmbr.int - 16)
+  IrqNmbr(exnNmbr.int - 16)
 
-func unusedSlot() =
+func unusedIsr() =
   ## This procedure is used to fill unused slots in the vector table.
   ## It should never be called.  It is used by this module for the logic
   ## to know which slots are unused
@@ -45,16 +46,16 @@ func unusedSlot() =
 proc initVectorTable(self: VectorTable) =
   self.stackPointer = c_vectorTable.stackPointer
   self.exceptionHandler = c_vectorTable.exceptionHandler
-  for i in 0 ..< plat.platInterruptCount:
-    self.interruptHandler[i] = unusedSlot
+  for i in 0 ..< plat.platIrqCnt:
+    self.irqHandler[i] = unusedSlot
 
-proc setInterruptHandler*(self: VectorTable, irqNmbr: InterruptNmbr, handler: InterruptHandler) =
+proc setIrqHandler*(self: VectorTable, irqNmbr: IrqNmbr, handler: InterruptHandler) =
   ## Sets the interrupt handler for the given interrupt number.
-  assert irqNmbr.uint < plat.platInterruptCount,
+  assert irqNmbr.uint < plat.platIrqCnt,
     "Interrupt number exceeds project-defined limit."
-  self.interruptHandler[irqNmbr.int] = handler
+  self.irqHandler[irqNmbr.int] = handler
 
-proc dispatchIsr*[N: static InterruptNmbr]() {.asmNoStackFrame.} =
+proc dispatchIsr*[N: static IrqNmbr]() {.asmNoStackFrame.} =
   ## Dispatches the next event to the actr with irqNmbr N.
   ## ATTENTION: This procedure is called in the handler context
   ## This procedure's only use is to be placed in the vector table.

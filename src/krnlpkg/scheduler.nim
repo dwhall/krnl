@@ -19,15 +19,15 @@ import armv7m/[nvic, sig]
 import bitflags, actr_set, vectortable
 
 type Scheduler = object
-  actrRegistry: array[plat.platInterruptCount, ref Actr]
-  enabled: array[plat.platInterruptCount, bool]
+  actrRegistry: array[plat.platIrqCnt, ref Actr]
+  enabled: array[plat.platIrqCnt, bool]
 
 proc registerActr(schd: var Scheduler, actr: ref Actr) =
   ## Registers a actr with this kernel
   schd.actrRegistry[actr.irqNmbr] = actr
   # TODO: register the actr's public emitted signals with the signal registry
 
-proc getActr(schd: Scheduler, irqNmbr: static InterruptNmbr): ref Actr =
+proc getActr(schd: Scheduler, irqNmbr: static IrqNmbr): ref Actr =
   ## Returns the actr associated with the given interrupt number.
   schd.actrRegistry[irqNmbr]
 

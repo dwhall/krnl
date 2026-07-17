@@ -7,7 +7,7 @@ import armv7m/core
 import actr_registry, plat, signal_registry, namespace, vectortable
 
 type Krnl = object
-  sigReg: SignalRegistry[plat.platInterruptCount]
+  sigReg: SignalRegistry[plat.platIrqCnt]
   actrReg: ActrRegistry
   # TODO: vector table
 
@@ -23,7 +23,7 @@ proc registerActr*(actrAddr: pointer) =
   ## Returns ... TBD
   # Temporary kernel-side adapter for the RegisterActor syscall path.
   assert actrAddr != nil
-  let irqNmbr = InterruptNmbr(0) # TODO: get irqNmbr from VectorTable
+  let irqNmbr = IrqNmbr(0) # TODO: get irqNmbr from VectorTable
   k.actrReg.registerActr(actrAddr, irqNmbr) # temporary
 
 proc registerSignals*(nsHash: NamespaceHash32, maxSig: uint32): SigPubToken =

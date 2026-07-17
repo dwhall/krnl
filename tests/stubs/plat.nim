@@ -2,6 +2,6 @@
 ##
 ## Platform-specific definition stubs for testing
 
-const platInterruptCount* = 128
+const platIrqCnt* = 128
 const platFpuAvail* = true
 const platNvicPriorityBits* = 3

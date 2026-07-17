@@ -35,7 +35,7 @@ proc registerSignals*[Nb](
 
 
 proc subscribe*[Nb](
-    self: var SignalRegistry[Nb], sig: SigTuple, irqNmbr: InterruptNmbr
+    self: var SignalRegistry[Nb], sig: SigTuple, irqNmbr: IrqNmbr
 ) =
   ## Subscribes to a signal.  The given interrupt number will be pended
   ## for activation when the signal is published.
@@ -43,7 +43,7 @@ proc subscribe*[Nb](
   self.subscribers[sig].incl(irqNmbr.uint16)
 
 proc unsubscribe*[Nb](
-    self: var SignalRegistry[Nb], sig: SigTuple, irqNmbr: InterruptNmbr
+    self: var SignalRegistry[Nb], sig: SigTuple, irqNmbr: IrqNmbr
 ) =
   ## Unsubscribes from a signal
   self.subscribers[sig].excl(irqNmbr.uint16)

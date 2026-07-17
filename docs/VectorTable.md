@@ -88,7 +88,7 @@ proc dispatchIrq17(schd: Scheduler) =
 and there is a common dispatch function (WIP):
 
 ```nim
-proc dispatch(schd: Scheduler, irqNmbr: static InterruptNmbr) =
+proc dispatch(schd: Scheduler, irqNmbr: static IrqNmbr) =
   ## Dispatches the next event to the task with the given irqNmbr.
   ## ATTENTION: This procedure is called in the handler context
   const task = schd.getTask(irqNmbr)

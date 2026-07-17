@@ -15,7 +15,7 @@ converter toNvicPriority*(prio: ActrPriority): NvicPriority =
       plat.platNvicPriorityBits
   )
 
-proc setPriority*(irqNmbr: InterruptNmbr, prio: ActrPriority) =
+proc setPriority*(irqNmbr: IrqNmbr, prio: ActrPriority) =
   ## Sets the this actr's interrupt's priority
   ## and enables the interrupt in the NVIC
   let

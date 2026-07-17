@@ -21,7 +21,7 @@ type
     eventHandler: proc(self: Actr[N], event: Event): HandlerReturn {.nimcall.}
     eventQueue: RingQue[N, Event]
     # children: seq[Actr[0]] # TODO: future work
-    irqNmbr*: InterruptNmbr
+    irqNmbr*: IrqNmbr
     priority: ActrPriority
 
   ## An Actr has at least one EventHandler, which may optionally transition

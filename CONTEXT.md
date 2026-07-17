@@ -17,10 +17,11 @@ Source: https://github.com/dwhall/krnl
 - Run-to-completion (RTC): each Actr runs one event to completion before the next event is dispatched
 - Single stack: all actrs use a single stack
 - Share-nothing: Actrs do not share data; all inter-Actr communication is via event posting; not semaphores or mutexes
-- Interrupts either:
+- Interrupt handlers either:
     * service a kernel-level device driver or
     * post an event to a user-level device driver or
     * dispatch an event to one or more Actrs
+    * do nothing
 - Memory: static allocation preferred for in-kernel objects; heap allocation should be used judiciously
 - Memory management: Nim `arc` or `orc` for real-time use where needed
 - Nim stdlib: used selectively; must favor static memory allocation
