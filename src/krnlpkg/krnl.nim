@@ -7,7 +7,7 @@ import armv7m/core
 import actr_registry, plat, signal_registry, namespace, vectortable
 
 type Krnl = object
-  sigReg: SignalRegistry[plat.platIrqCnt]
+  sigReg: SignalRegistry
   actrReg: ActrRegistry[plat.platIrqCnt]
   vectorTable: VectorTable[plat.platIrqCnt]
 
