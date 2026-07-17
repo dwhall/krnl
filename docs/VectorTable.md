@@ -27,7 +27,7 @@ bootloader-defined and outside the scope of this document.
 
 ## Application Vector Table
 
-A `VectorTable[PLAT_IRQ_CNT]` object allocated in RAM.
+A `VectorTable` object allocated in RAM.
 
 **Alignment:** VTOR requires the table to be aligned to the next power-of-two value
 greater than or equal to `(16 + PLAT_IRQ_CNT) × 4` bytes. The linker script or
@@ -182,7 +182,7 @@ tail-chaining throughput, which is central to KRNL's scheduling model.
 taskRegistry: array[PLAT_IRQ_CNT, ref Task]
 
 # In RAM (linker-aligned):
-appVT: VectorTable[PLAT_IRQ_CNT]
+appVT: VectorTable
 
 # Project-specific (per target device):
 platformSignal: array[PLAT_IRQ_CNT, Signal]  # constant, 1:1 to IRQ numbering

@@ -9,7 +9,7 @@ import actr_registry, plat, signal_registry, namespace, vectortable
 type Krnl = object
   sigReg: SignalRegistry
   actrReg: ActrRegistry
-  vectorTable: VectorTable[plat.platIrqCnt]
+  vectorTable: VectorTable
 
 # One shared mutable reference set only by krnl.init()
 var k: ptr Krnl

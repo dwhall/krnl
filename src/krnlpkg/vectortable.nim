@@ -14,21 +14,22 @@
 import plat
 
 type
-  IrqNmbr* = 0..plat.platIrqCnt - 1 # interrupts are external to the ARM core
+  IrqNmbr* = 0 .. plat.platIrqCnt - 1 # interrupts are external to the ARM core
 
-  ExnNmbr = 1..(16 + plat.platIrqCnt) # exceptions include those internal to the ARM core
-                                      # and external interrupts
+  ExnNmbr = 1 .. (16 + plat.platIrqCnt)
+    # exceptions include those internal to the ARM core
+    # and external interrupts
   ExnHandler = proc()
   IrqHandler = proc()
-  VectorTable[N: static uint] = object
+  VectorTable = object
     stackPointer: uint32
     exnHandler: array[1 .. 16, ExnHandler]
-    irqHandler: array[N, IrqHandler]
+    irqHandler: array[IrqNmbr, IrqHandler]
 
 const invalidIrqNmbr* = IrqNmbr(0)
 
 # The non-volatile Vector Table used at power-on-reset; from vector_table.c
-let c_vectorTable {.importc: "vectorTable".}: VectorTable[plat.platIrqCnt]
+let c_vectorTable {.importc: "vectorTable".}: VectorTable
 
 converter toInterruptNumber*(exnNmbr: ExnNmbr): IrqNmbr =
   ## Converts an exception number to an interrupt number
