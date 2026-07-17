@@ -8,7 +8,7 @@ import actr_registry, plat, signal_registry, namespace, vectortable
 
 type Krnl = object
   sigReg: SignalRegistry[plat.platIrqCnt]
-  actrReg: ActrRegistry
+  actrReg: ActrRegistry[plat.platIrqCnt]
   vectorTable: VectorTable[plat.platIrqCnt]
 
 # One shared mutable reference set only by krnl.init()
@@ -31,7 +31,9 @@ func registerActr*(self: var Krnl, actrAddr: pointer) =
   self.actrReg.registerActr(actrAddr, irqNmbr)
   self.vectorTable.setInterruptHandler(irqNmbr, dispatchIsr[irqNmbr])
 
-func registerSignals*(self: var Krnl, nsHash: NamespaceHash32, maxSig: uint32): SigPubToken =
+func registerSignals*(
+    self: var Krnl, nsHash: NamespaceHash32, maxSig: uint32
+): SigPubToken =
   ## Register a series of signals with the kernel.
   self.sigReg.registerSignals(nsHash, maxSig)
 

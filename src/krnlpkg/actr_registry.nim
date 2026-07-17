@@ -11,11 +11,10 @@
 
 import actr, vectortable
 
-type
-  ActrRegistry* = object
-    actrs: array[IrqNmbr, ptr Actr]
+type ActrRegistry*[N: static uint8] = object
+  actrs: array[IrqNmbr, ptr Actr[N]]
 
-proc registerActr*(self: var ActrRegistry, actr: ptr Actr, irqNmbr: IrqNmbr) =
+func registerActr*(self: var ActrRegistry, actr: ptr Actr, irqNmbr: IrqNmbr) =
   ## Registers an actr with the registry.  The actr's irqNmbr is used to
   ## identify the actr in this registry.
   self.actrs[irqNmbr] = actr
