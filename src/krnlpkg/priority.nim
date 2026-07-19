@@ -1,10 +1,11 @@
 ## Copyright 2026 Dean Hall See LICENSE for details
 ##
 
-import plat, vectortable
+import armv7m/[core, nvic]
+import irqnmbr, math, plat
 
 type
-  ActrPriority* = range 0'u8 .. (0xFF'u8 shr plat.platNvicPriorityBits) # 0 is the lowest priority
+  ActrPriority* = 0'u8..(0xFF'u8 shr plat.platNvicPriorityBits) # 0 is the lowest priority
   NvicPriority = uint8 # 0 is the highest priority
 
 converter toNvicPriority*(prio: ActrPriority): NvicPriority =
@@ -15,14 +16,20 @@ converter toNvicPriority*(prio: ActrPriority): NvicPriority =
       plat.platNvicPriorityBits
   )
 
-proc setPriority*(irqNmbr: IrqNmbr, prio: ActrPriority) =
+template CRIT_ENTER() =
+  disableIrq()
+
+template CRIT_EXIT() =
+  enableIrq()
+
+proc setPriority*(irqNmbr: static IrqNmbr, prio: ActrPriority) =
   ## Sets the this actr's interrupt's priority
   ## and enables the interrupt in the NVIC
-  let
-    (irqDiv4, irqMod4) = divmod(self.irqNmbr, 4'u8)
+  const
+    (irqDiv4, irqMod4) = divmod(irqNmbr, 4'u8)
     iprReg = NVIC.NVIC_IPR(irqDiv4)
 
-    (irqDiv32, irqMod32) = divmod(self.irqNmbr, 32'u8)
+    (irqDiv32, irqMod32) = divmod(irqNmbr, 32'u8)
     iserReg = NVIC.NVIC_ISER(irqDiv32)
 
     irqBitf = 1'u32 shl irqMod32

@@ -11,12 +11,10 @@
 ##     B1.5 Armv7-M exception model
 ##
 
-import plat
+import irqnmbr, krnl, plat
 
 type
-  IrqNmbr* = 0 .. plat.platIrqCnt - 1 # interrupts are external to the ARM core
-
-  ExnNmbr = 1 .. (16 + plat.platIrqCnt)
+  ExnNmbr = 1..(16 + plat.platIrqCnt)
     # exceptions include those internal to the ARM core
     # and external interrupts
   ExnHandler = proc()
@@ -43,9 +41,9 @@ func unusedIsr() =
   while true:
     discard
 
-func initVectorTable(self: var VectorTable) =
-  self.stackPointer = c_vectorTable.stackPointer
-  self.exnHandler = c_vectorTable.exnHandler
+func initVectorTable(self: var VectorTable, prevVt: VectorTable) =
+  self.stackPointer = prevVt.stackPointer
+  self.exnHandler = prevVt.exnHandler
   for i in 0 ..< plat.platIrqCnt:
     self.irqHandler[i] = unusedIsr
 

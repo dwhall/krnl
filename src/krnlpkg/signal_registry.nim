@@ -16,7 +16,7 @@
 ##
 
 import std/tables
-import bitflags, namespace, plat, signal, vectortable
+import bitflags, irqnmbr, namespace, plat, signal
 
 type
   SigPubToken* = uint32 # TODO: make distinct?
@@ -24,30 +24,39 @@ type
     publishers: Table[SigPubToken, SigTuple]
     subscribers: Table[Signal, Bitflags[plat.platIrqCnt]]
 
-proc contains*(self: SignalRegistry, sig: SigTuple): bool =
-  self.publishers.hasVal(sig)
+#proc contains*(self: SignalRegistry, sig: SigTuple): bool =
+#  self.publishers.hasVal(sig)
 
 proc registerSignals*(
     self: var SignalRegistry, nsHash: NamespaceHash32, maxSig: uint32
 ) =
   ## Registers a range signals from 0 .. maxSig in the registry
-  self.publishers
+  let
+    token = SigPubToken(0) # TODO: generate a real token
+    sigTuple = (nsHash:nsHash, sig:maxSig)
+  self.publishers[token] = sigTuple
 
 proc subscribe*(self: var SignalRegistry, sig: SigTuple, irqNmbr: IrqNmbr) =
   ## Subscribes to a signal.  The given interrupt number will be pended
   ## for activation when the signal is published.
-  assert sig in registry, "Signal not registered"
-  self.subscribers[sig].incl(irqNmbr.uint16)
+  # TODO: scan publishers for SigTuple with sig
+  #assert sig in self.publishers, "Signal not registered"
+  #self.subscribers[sig].incl(irqNmbr.uint16)
 
 proc unsubscribe*(self: var SignalRegistry, sig: SigTuple, irqNmbr: IrqNmbr) =
   ## Unsubscribes from a signal
-  self.subscribers[sig].excl(irqNmbr.uint16)
+  # TODO: fixme
+  #self.subscribers[sig].excl(irqNmbr.uint16)
 
 iterator pairs*(self: SignalRegistry, sig: Signal): tuple[key: uint16, val: uint32] =
   ## Yields all bitflags for the given signal as (wordIdx, bitflags.uint32)
+  # TODO: fixme
+  #[
   if sig in self:
     let bitflags = self[sig]
     var idx = 0'u16
     for bf in bitflags:
       yield (idx, bf)
       inc idx
+  ]#
+  yield (key:0'u16, val:0'u32) # placeholder

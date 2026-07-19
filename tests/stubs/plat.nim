@@ -4,4 +4,4 @@
 
 const platIrqCnt* = 128
 const platFpuAvail* = true
-const platNvicPriorityBits* = 3
+const platNvicPriorityBits* = 3'u8

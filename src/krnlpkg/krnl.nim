@@ -4,7 +4,7 @@
 ##
 
 import armv7m/core
-import actr_registry, plat, signal_registry, namespace, vectortable
+import actr_registry, irqnmbr, namespace, plat, signal_registry
 
 type Krnl = object
   sigReg: SignalRegistry

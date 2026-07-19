@@ -3,9 +3,8 @@
 ## KRNL Actr operations
 ##
 
-import math
-import armv7m/[core, nvic, sig]
-import event, plat, priority, ringque, vectortable
+import armv7m/[core, sig]
+import event, irqnmbr, priority, ringque
 
 type
   ## An Actr is an active object with an event handler that processes events
@@ -20,7 +19,7 @@ type
   Actr*[N: static uint8] = object of RootObj
     eventHandler: proc(self: Actr[N], event: Event): HandlerReturn {.nimcall.}
     eventQueue: RingQue[N, Event]
-    # children: seq[Actr[0]] # TODO: future work
+    # children: seq[Actr[0'u8]] # TODO: future work
     irqNmbr*: IrqNmbr
     priority: ActrPriority
 
