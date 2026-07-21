@@ -14,7 +14,7 @@
 import irqnmbr, krnl, plat
 
 type
-  ExnNmbr = 1..(16 + plat.platIrqCnt)
+  ExnNmbr = 1 .. (16 + plat.platIrqCnt)
     # exceptions include those internal to the ARM core
     # and external interrupts
   ExnHandler = proc()
@@ -76,11 +76,15 @@ proc dispatchIsr*[N: static IrqNmbr]() {.asmNoStackFrame.} =
     actr = getActr(N)
     evnt = actr.popEvent()
     handler = actr.eventHandler
-  asm """
-    mov r0, %0
-    mov lr, %1
-    ldr pc, #0xF0000000 ; return from exception
-    :
-    : "r"(`evnt`), "r"(`handler`)
-    : "r0", "r1", "memory"
-  """
+  when defined(arm):
+    asm """
+      mov r0, %0
+      mov r1, %1
+      mov lr, %2
+      ldr pc, #0xF0000000 ; return from exception
+      :
+      : "r"(`actr`), "r"(`evnt`), "r"(`handler`)
+      : "r0", "r1", "memory"
+    """
+  else:
+    discard handler(actr, evnt)

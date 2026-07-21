@@ -4,7 +4,7 @@
 ##
 
 import armv7m/[core, sig]
-import event, irqnmbr, priority, ringque
+import event, irqnmbr, priority
 
 type
   ## An Actr is an active object with an event handler that processes events
@@ -16,17 +16,16 @@ type
   ## the event directly dispatched from the parent.
   ## The irqNmbr field also serves as an index into the interruptHandler
   ## array in the VectorTable, which also implies it is a unique value
-  Actr*[N: static uint8] = object of RootObj
-    eventHandler: proc(self: Actr[N], event: Event): HandlerReturn {.nimcall.}
-    eventQueue: RingQue[N, Event]
+  Actr* = ref object of RootObj
+    eventHandler: proc(self: Actr, event: Event): HandlerReturn {.nimcall.}
+    eventQueue: seq[Event]
     # children: seq[Actr[0'u8]] # TODO: future work
-    irqNmbr*: IrqNmbr
+    irqNmbr: IrqNmbr
     priority: ActrPriority
 
   ## An Actr has at least one EventHandler, which may optionally transition
   ## to another EventHandler in response to an Event; forming a state machine.
-  EventHandler*[N: static uint8] =
-    proc(self: Actr[N], event: Event): HandlerReturn {.nimcall.}
+  EventHandler* = proc(self: var Actr, event: Event): HandlerReturn {.nimcall.}
 
   ## Every EventHandler returns a HandlerReturn code to indicate
   ## how the event was processed.
@@ -39,6 +38,16 @@ type
     RetExit
     RetTransitioned
 
+proc newActr*(evntQueLen: uint8, prio: ActrPriority): Actr =
+  ## Returns an Actr with an event queue allocated to the given length.
+  ## The irqNmbr field is not initialized here;
+  ## it is set when the Actr is registered with the kernel.
+  result.eventQueue = newSeqOfCap[Event](evntQueLen)
+  result.priority = prio
+
+func setIrqNmbr*(self: var Actr, irqNmbr: IrqNmbr) =
+  self.irqNmbr = irqNmbr
+
 template CRIT_ENTER() =
   disableIrq()
 
@@ -50,28 +59,11 @@ template schedule(self: Actr) =
   # NOTE: The caller MUST be in a critical section in privileged mode
   SIG.STIR.INTID(self.irqNmbr)
 
-proc activate*(self: var Actr) =
-  ## Pops an event within a critical section and calls the actr's event handler.
-  ## If the actr's event queue is not empty after popping,
-  ## the actr is scheduled for execution again.
-  # NOTE: MUST only be called when the actr has an event in its queue
-  # NOTE: The caller MUST be in privileged mode
-  assert self.eventQue.len() > 0'u8
-  CRIT_ENTER()
-  let e = self.eventQue.pop()
-  if self.eventQue.len() > 0:
-    self.schedule()
-  CRIT_EXIT()
-  self.dispatch(e) # actr's event handler
-
 func post*(self: var Actr, e: Event) =
   ## Posts an event to the actr and schedules the actr for execution
   ## within a critical section
   # NOTE: The caller MUST be in privileged mode
   CRIT_ENTER()
-  self.eventQue.add(e)
+  self.eventQueue.add(e)
   self.schedule()
   CRIT_EXIT()
-
-func setIrq*(self: var Actr, irq: uint8) =
-  self.irqNum = irq

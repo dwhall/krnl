@@ -11,14 +11,14 @@ type Krnl = object
   actrReg: ActrRegistry
   vectorTable: VectorTable
 
-# One shared mutable reference set only by krnl.init()
+## One shared mutable reference set only by krnl.init()
 var k: ptr Krnl
 
 func init*(self: var Krnl) =
   k = self # this should be the ONLY place where k is set
   self.vectorTable.initVectorTable()
 
-func registerActr*(self: var Krnl, actrAddr: pointer) =
+func registerActr*(self: var Krnl, actrAddr: ptr Actr) =
   ## Register the actor with the kernel, give it an interrupt slot
   ## so it may be activated by pending an interrupt.
   ## Returns ... TBD

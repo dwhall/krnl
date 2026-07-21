@@ -10,22 +10,21 @@ test "the ActrRegistry type SHOULD exist":
   check compiles ActrRegistry
 
 test "get from an empty registry SHOULD assert":
-  let
-    r = ActrRegistry()
+  let r = ActrRegistry()
   expect Defect:
     discard r.getActr(0)
 
 test "SHOULD be able to register an actor":
   var r = ActrRegistry()
   let
-    a = Actr[4]()
+    a = Actr()
     n = IrqNmbr(12)
   r.registerActr(addr a, n)
 
 test "SHOULD be able to get a registered actor":
   var r = ActrRegistry()
   let
-    a = Actr[4]()
+    a = Actr()
     n = IrqNmbr(12)
   r.registerActr(addr a, n)
   let aa = r.getActr(12)
@@ -34,7 +33,7 @@ test "SHOULD be able to get a registered actor":
 test "getting an unregisered irqNmbr should assert":
   var r = ActrRegistry()
   let
-    a = Actr[4]()
+    a = Actr()
     n = IrqNmbr(12)
   r.registerActr(addr a, n)
   expect Defect:
