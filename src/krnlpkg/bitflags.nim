@@ -16,37 +16,35 @@ type Bitflags*[Nb: static int] = object
   flags: array[(Nb + 31) div 32, uint32]
   card: uint16 # number of bits currently set
 
-proc cap*(self: Bitflags): uint16 =
+proc cap*[Nb: static int](self: Bitflags[Nb]): uint16 =
   ## Returns the capacity of the bitflags, which is the declared number of bits,
-  ## Nb, rounded up to the next multiple of 32.
-  self.flags.len.uint16 * 32'u16
+  Nb
 
 proc card*(self: Bitflags): uint16 =
   ## Returns the number of bits currently set in the bitflags
   self.card
 
-proc incl*(self: var Bitflags, flag: uint16) =
-  ## Sets the flag in the bitflags
-  assert flag < self.cap, "This flag does not fit within the declared Bitflags object"
-  let (wordIdx, bitIdx) = divmod(flag, 32'u16)
+proc incl*[Nb: static int](self: var Bitflags[Nb], flagIdx: range[0 .. (Nb - 1)]) =
+  ## Sets the flagIdx in the bitflags
+  let (wordIdx, bitIdx) = divmod(flagIdx.int32, 32)
   let alreadySet = (self.flags[wordIdx] and (1'u32 shl bitIdx)) != 0'u32
   if not alreadySet:
     inc self.card
     self.flags[wordIdx] = self.flags[wordIdx] or (1'u32 shl bitIdx)
 
-proc excl*(self: var Bitflags, flag: uint16) =
-  ## Clears the flag in the bitflags
-  assert flag < self.cap, "This flag does not fit within the declared Bitflags object"
-  let (wordIdx, bitIdx) = divmod(flag, 32'u16)
+proc excl*[Nb: static int](self: var Bitflags[Nb], flagIdx: range[0 .. (Nb - 1)]) =
+  ## Clears the flagIdx in the bitflags
+  let (wordIdx, bitIdx) = divmod(flagIdx.int32, 32)
   let alreadySet = (self.flags[wordIdx] and (1'u32 shl bitIdx)) != 0'u32
   if alreadySet:
     dec self.card
     self.flags[wordIdx] = self.flags[wordIdx] and not (1'u32 shl bitIdx)
 
-proc contains*(self: Bitflags, flag: uint16): bool =
-  ## Returns true if the flag is set in the bitflags, false otherwise
-  assert flag < self.cap, "This flag does not fit within the declared Bitflags object"
-  let (wordIdx, bitIdx) = divmod(flag, 32'u16)
+proc contains*[Nb: static int](
+    self: Bitflags[Nb], flagIdx: range[0 .. (Nb - 1)]
+): bool =
+  ## Returns true if the flagIdx is set in the bitflags, false otherwise
+  let (wordIdx, bitIdx) = divmod(flagIdx.int32, 32)
   (self.flags[wordIdx] and (1'u32 shl bitIdx)) != 0'u32
 
 proc isEmpty*(self: Bitflags): bool =
@@ -54,10 +52,11 @@ proc isEmpty*(self: Bitflags): bool =
   self.card == 0
 
 iterator items*(self: Bitflags): uint32 =
+  ## Yields word-sized sets of flags from least to greatest
   for i in self.flags:
     yield i
 
 proc `[]`*(self: Bitflags, i: uint8): uint32 =
   ## Returns the i-th 32-bit wide group of flags, where i is in the range [0, Nb div 32)
-  assert i < self.flags.len.uint16
+  assert i < self.flags.len.uint
   self.flags[i]

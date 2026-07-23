@@ -12,42 +12,42 @@ test "cap SHOULD return the capacity of the bitflags":
   let bf1 = Bitflags[64]()
   check bf1.cap == 64
   let bf2 = Bitflags[88]()
-  check bf2.cap == 96
+  check bf2.cap == 88
 
 test "SHOULD be able to include a flag in the bitflags":
   var bf = Bitflags[32]()
   check compiles bf.incl 5
 
 test "SHOULD be able to check if a flag is in the bitflags":
-  var bf = Bitflags[64]()
+  var bf = Bitflags[60]()
   bf.incl 55
   check 55 in bf
 
 test "SHOULD be able to check if a flag is not in the bitflags":
-  var bf = Bitflags[64]()
+  var bf = Bitflags[60]()
   bf.incl 55
   check 23 notin bf
 
 test "SHOULD be able to exclude a flag from the bitflags":
-  var bf = Bitflags[64]()
+  var bf = Bitflags[60]()
   check compiles bf.excl 55
 
 test "SHOULD be able to check that a flag is excluded":
-  var bf = Bitflags[64]()
+  var bf = Bitflags[60]()
   bf.incl 55
   bf.incl 0
   bf.excl 55
   check 55 notin bf
 
 test "SHOULD be able to check that a flag is not excluded":
-  var bf = Bitflags[64]()
+  var bf = Bitflags[60]()
   bf.incl 55
   bf.incl 0
   bf.excl 55
   check 0 in bf
 
 test "SHOULD be able to check if the bitflags is empty":
-  var bf = Bitflags[64]()
+  var bf = Bitflags[60]()
   check bf.isEmpty
   bf.incl 1
   check not bf.isEmpty
@@ -59,7 +59,7 @@ test "SHOULD be able to check if the bitflags is empty":
   check bf.isEmpty
 
 test "SHOULD be able to check the cardinality of the bitflags":
-  var bf = Bitflags[64]()
+  var bf = Bitflags[60]()
   check bf.card == 0
   bf.incl 1
   check bf.card == 1
@@ -96,28 +96,30 @@ test "SHOULD be able to access the fields of the bitflags":
   check bf[2] == 4
   check bf[3] == 8
 
-test "incl SHOULD raise an assertion error if the flag is out of bounds":
-  var bf = Bitflags[64]()
-  expect AssertionDefect:
-    bf.incl 64
-  expect AssertionDefect:
-    bf.incl 100
+test "incl SHOULD NOT compile if the flag is out of bounds":
+  var bf: Bitflags[60]
+  # bf.incl 100 # Error: conversion from int literal(100) to range 0..59(int) is invalid
+  # DWH: `compiles` does not detect the compiler error in the line above
+  # check not compiles bf.incl(100)
+  check true
+  discard bf
 
-test "excl SHOULD raise an assertion error if the flag is out of bounds":
-  var bf = Bitflags[20]()
-  expect AssertionDefect:
-    bf.excl 32
-  expect AssertionDefect:
-    bf.excl 100
+test "excl SHOULD NOT compile if the flag is out of bounds":
+  var bf: Bitflags[20]
+  # bf.excl 20 # Error: conversion from int literal(20) to range 0..19(int) is invalid
+  # DWH: `compiles` does not detect the compiler error in the line above
+  # check not compiles bf.incl(20)
+  check true
+  discard bf
 
 test "excl an empty Bitfields SHOULD NOT cause the cardinality to underflow":
-  var bf = Bitflags[20]()
+  var bf: Bitflags[20]
   check bf.card == 0
   bf.excl 5
   check bf.card == 0
 
 test "incl a full Bitfields SHOULD NOT cause the cardinality to overflow":
-  var bf = Bitflags[32]()
+  var bf: Bitflags[32]
   for i in 0'u16 ..< 32:
     bf.incl i
   check bf.card == 32
