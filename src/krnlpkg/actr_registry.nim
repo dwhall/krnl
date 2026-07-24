@@ -9,17 +9,17 @@
 ## method of being pended for activation (execute code).
 ##
 
-import irqnmbr
+import actr, irqnmbr
 
 type ActrRegistry* = object
-  actrs: array[IrqNmbr, pointer]
+  actrs: array[IrqNmbr, Actr]
 
-func registerActr*(self: var ActrRegistry, actr: pointer, irqNmbr: IrqNmbr) =
+func registerActr*(self: var ActrRegistry, actr: Actr, irqNmbr: IrqNmbr) =
   ## Registers an actr with the registry.  The actr's irqNmbr is used to
   ## identify the actr in this registry.
   self.actrs[irqNmbr] = actr
 
-func getActr*(self: ActrRegistry, irqNmbr: IrqNmbr): pointer {.inline.} =
+func getActr*(self: ActrRegistry, irqNmbr: static IrqNmbr): Actr {.inline.} =
   ## Returns the actr registered with the given interrupt number
   ## ATTENTION: This procedure is called in the handler context
   assert self.actrs[irqNmbr] != nil, "Actr not registered" # and a.irqNmbr == irqNmbr
