@@ -3,8 +3,9 @@
 ## KRNL
 ##
 
+import std/macros
 import armv7m/core
-import actr, actr_registry, irqnmbr, namespace, plat, signal_registry
+import actr, actr_registry, irqnmbr, namespace, plat, signal_registry, vectortable
 
 type Krnl = object
   sigReg: SignalRegistry
@@ -14,9 +15,48 @@ type Krnl = object
 ## One shared mutable reference set only by krnl.init()
 var k: ptr Krnl
 
-func init*(self: var Krnl) =
-  k = self # this should be the ONLY place where k is set
+proc init*(self: var Krnl) =
+  k = addr self # this should be the ONLY place where k is set
   self.vectorTable.initVectorTable()
+
+proc dispatchIsr*[N: static IrqNmbr]() {.asmNoStackFrame.} =
+  ## Dispatches the actr's next event to the actr with irqNmbr N.
+  ## ATTENTION: This procedure is called in the handler context
+  ## This procedure's only use is to be placed in the vector table.
+  #[
+    B1.5.8 Exception return behavior
+    An exception return occurs when the processor is in Handler mode and
+    one of the following instructions loads a value of 0xFXXXXXXX into the PC:
+    * POP/LDM that includes loading the PC.
+    * LDR with PC as a destination.
+    * BX with any register.
+  ]#
+  let
+    actr = k.actrReg.getActr(N)
+    evnt = actr[].popEvent()
+    handler = actr[].eventHandler
+  when defined(arm):
+    asm """
+      mov r0, %0
+      mov r1, %1
+      mov lr, %2
+      ldr pc, #0xF0000000 ; return from exception
+      :
+      : "r"(`actr`), "r"(`evnt`), "r"(`handler`)
+      : "r0", "r1", "memory"
+    """
+  else:
+    discard handler(actr[], evnt)
+
+macro genDispatchIsrTable(): untyped =
+  ## Builds `[dispatchIsr[0], dispatchIsr[1], ..., dispatchIsr[high(IrqNmbr)]]`,
+  ## which instantiates dispatchIsr[N] for every valid IrqNmbr as a side effect.
+  result = newTree(nnkBracket)
+  for n in low(IrqNmbr).int .. high(IrqNmbr).int:
+    result.add newTree(nnkBracketExpr, ident"dispatchIsr", newLit(uint8 n))
+
+const dispatchIsrTable = genDispatchIsrTable()
+  ## Static table mapping each IrqNmbr to its dispatchIsr[N] proc.
 
 func registerActr*(self: var Krnl, actr: var Actr) =
   ## Register the actor with the kernel, give it an interrupt slot
@@ -28,20 +68,15 @@ func registerActr*(self: var Krnl, actr: var Actr) =
   if irqNmbr == invalidIrqNmbr:
     # TODO: handle situation of too many actors, not enough interrupt slots
     return
-  self.actrReg.registerActr(actr, irqNmbr)
-  self.vectorTable.setInterruptHandler(irqNmbr, dispatchIsr[irqNmbr])
+  self.actrReg.registerActr(addr actr, irqNmbr)
+  let handler = dispatchIsrTable[irqNmbr]
+  self.vectorTable.setIrqHandler(irqNmbr, handler)
 
 func registerSignals*(
     self: var Krnl, nsHash: NamespaceHash32, maxSig: uint32
 ): SigPubToken =
   ## Register a series of signals with the kernel.
   self.sigReg.registerSignals(nsHash, maxSig)
-
-proc getActr*(irqNmbr: static IrqNmbr): Actr {.inline.} =
-  ## Returns a pointer to the actr registered with the given interrupt number
-  ## ATTENTION: This procedure uses module-scope mutable reference, k.
-  ## ATTENTION: This procedure is called in the handler context
-  k.actrReg.getActr(irqNmbr)
 
 func runForever*() {.noreturn.} =
   while true:
