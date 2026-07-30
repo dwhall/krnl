@@ -5,14 +5,14 @@ import armv7m/[core, nvic]
 import irqnmbr, math, plat
 
 type
-  ActrPriority* = 0'u8..(0xFF'u8 shr plat.platNvicPriorityBits) # 0 is the lowest priority
+  ActrPriority* = 0 .. (0xFF shr plat.platNvicPriorityBits) # 0 is the lowest priority
   NvicPriority = uint8 # 0 is the highest priority
 
 converter toNvicPriority*(prio: ActrPriority): NvicPriority =
   ## Converts ActrPriority where 0 is the lowest priority
   ## to NvicPriority where 0 is the highest priority
   NvicPriority(
-    ((0xFF'u32 shr plat.platNvicPriorityBits) + 1'u32 - prio) shl
+    ((0xFF'u32 shr plat.platNvicPriorityBits) + 1'u32 - prio.uint32) shl
       plat.platNvicPriorityBits
   )
 

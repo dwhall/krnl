@@ -3,21 +3,20 @@
 ## KRNL: System call interface and SVC dispatcher
 ##
 
-import namespace, signal_registry
+import actr, namespace, signal_registry
 
 type
   SyscallId* = enum
     SyscallInvalid
     SyscallRegisterActr
-    SyscallRegisterSignals
-    # SyscallEnableTimerEvent # How to catch the event (no name)?
+    SyscallRegisterSignals # SyscallEnableTimerEvent # How to catch the event (no name)?
 
   SyscallArgs* = object
     case syscallId*: SyscallId
     of SyscallInvalid:
       discard
     of SyscallRegisterActr:
-      actrAddr*: pointer
+      actrAddr*: Actr
     of SyscallRegisterSignals:
       nsHash*: NamespaceHash32
       maxSig*: uint32
@@ -49,14 +48,17 @@ template syscall(syscallArgs: ptr SyscallArgs): SyscallRetval =
   else:
     {.error: "syscall is only supported for ARM targets".}
 
-proc syscallRegisterActr*(actrAddr: pointer): SyscallRetval =
+proc syscallRegisterActr*(actrAddr: Actr): SyscallRetval =
   ## Issues a syscall to register an actor with the kernel
   let args = SyscallArgs(syscallId: SyscallRegisterActr, actrAddr: actrAddr)
   syscall(addr args)
 
-proc syscallRegisterSignals*(dottedNames: static string, maxSig: uint32): SyscallRetval =
+proc syscallRegisterSignals*(
+    dottedNames: static string, maxSig: uint32
+): SyscallRetval =
   const nsHash = NS32(dottedNames)
-  let args = SyscallArgs(syscallId: SyscallRegisterSignals, nsHash: nsHash, maxSig: maxSig)
+  let args =
+    SyscallArgs(syscallId: SyscallRegisterSignals, nsHash: nsHash, maxSig: maxSig)
   syscall(addr args)
 
   ## Issues a syscall to publishes an event to all subscribers of the event's signal.

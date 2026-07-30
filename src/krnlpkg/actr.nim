@@ -17,7 +17,7 @@ type
   ## The irqNmbr field also serves as an index into the interruptHandler
   ## array in the VectorTable, which also implies it is a unique value
   Actr* = ref object of RootObj
-    eventHandler: proc(self: Actr, event: Event): HandlerReturn {.nimcall.}
+    eventHandler*: proc(self: Actr, event: Event): HandlerReturn {.nimcall.}
     eventQueue: seq[Event]
     # children: seq[Actr[0'u8]] # TODO: future work
     irqNmbr: IrqNmbr
@@ -67,3 +67,9 @@ func post*(self: var Actr, e: Event) =
   self.eventQueue.add(e)
   self.schedule()
   CRIT_EXIT()
+
+func popEvent*(self: var Actr): Event =
+  ## Pops the next event from the actr's event queue
+  # NOTE: The caller MUST be in a critical section in privileged mode
+  result = self.eventQueue[0]
+  self.eventQueue.delete(0)

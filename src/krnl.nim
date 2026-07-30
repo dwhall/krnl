@@ -2,7 +2,7 @@
 # uses this file as the main entry point of the application.
 
 import krnlpkg/actr
-export Actr
+export actr
 
 import krnlpkg/event
 export Event

@@ -14,13 +14,13 @@ proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallRetval {.inline.} =
     result.syscallId = SyscallInvalid
   else:
     result.syscallId = pargs[].syscallId
-  case result.syscallId
-  of SyscallRegisterActr:
-    registerActr(pargs[].actrAddr)
-  of SyscallRegisterSignals:
-    result.token = registerSignals(pargs[].nsHash, pargs[].maxSig)
-  else:
-    discard
+    case result.syscallId
+    of SyscallRegisterActr:
+      registerActr(pargs[].actrAddr)
+    of SyscallRegisterSignals:
+      result.token = registerSignals(pargs[].nsHash, pargs[].maxSig)
+    else:
+      discard
 
 proc SVC_Handler*() {.exportc, noconv.} =
   let

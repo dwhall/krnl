@@ -20,7 +20,7 @@ proc validateNvicPriorityConfig() {.inline.} =
   SCB.SHPR3.write(originalValue)
   # prio is an 8-bit field with the implemented bits set and packed toward the MSb.
   # nvicPrioBits is the offset to the least significant set bit of prio.
-  let n = uint32(firstSetBit(prio) - 1)
+  let n = firstSetBit(prio) - 1
   # If you reach this assert, either you used the wrong SVD file for your MCU
   # or the cpu/nvicPrioBits value in your SVD file is incorrect
   assert plat.platNvicPriorityBits == n,
