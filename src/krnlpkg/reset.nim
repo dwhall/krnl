@@ -1,8 +1,8 @@
-{.compile: "vector_table.c".}
 {.compile: "stubs.c".}
 {.compile: "std.c".}
 
 import armv7m/scb
+import vectortable
 
 let # from linker script
   c_etext {.importc: "__etext".}: char
@@ -26,9 +26,6 @@ proc zeroBssSection() {.inline.} =
   while addr(bss_start[i]) < addr c_bss_end:
     bss_start[i] = 0
     inc i
-
-let # from project source
-  c_vectorTable {.importc: "vectorTable".}: cint
 
 proc NimMain() {.importc: "NimMain".}
 

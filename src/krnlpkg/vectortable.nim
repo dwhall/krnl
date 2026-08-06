@@ -11,6 +11,9 @@
 ##     B1.5 Armv7-M exception model
 ##
 
+{.compile: "vector_table.c".}
+
+import armv7m/core
 import irqnmbr, plat
 
 type
@@ -26,9 +29,15 @@ type
 
 const invalidIrqNmbr* = IrqNmbr(0)
 
-# TODO: vectorTable currently resides in c2lora's reset.nim; though it might be related to plat
+proc default_Handler() {.exportc, noconv.} =
+  while true:
+    when defined(arm):
+      WFI()
+    else:
+      discard
+
 # The non-volatile Vector Table used at power-on-reset; from vector_table.c
-let c_vectorTable {.importc: "vectorTable", used.}: VectorTable
+let c_vectorTable* {.importc: "vectorTable", used.}: VectorTable
 
 converter toInterruptNumber*(exnNmbr: ExnNmbr): IrqNmbr =
   ## Converts an exception number to an interrupt number
@@ -52,7 +61,7 @@ func setIrqHandler*(self: var VectorTable, irqNmbr: IrqNmbr, handler: IrqHandler
   ## Sets the interrupt handler for the given interrupt number.
   self.irqHandler[irqNmbr] = handler
 
-# TODO: enforce that this MUST be called AFTER the vector table
+# TODO: enforce that this may only be called AFTER the vector table
 # is populated with the irq handlers
 func getUnusedIrqNmbr*(self: VectorTable): IrqNmbr =
   ## Returns the first unused interrupt slot index in the vector table
