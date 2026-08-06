@@ -7,6 +7,9 @@ export actr
 import krnlpkg/event
 export Event
 
+import proj
+export EventValue
+
 import krnlpkg/priority
 export ActrPriority
 

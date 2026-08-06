@@ -4,7 +4,8 @@
 ##
 
 import armv7m/[core, sig]
-import event, irqnmbr, priority
+import event, irqnmbr, priority, signal
+import proj
 
 type
   ## An Actr is an active object with an event handler that processes events
@@ -17,7 +18,8 @@ type
   ## The irqNmbr field also serves as an index into the interruptHandler
   ## array in the VectorTable, which also implies it is a unique value
   Actr* = ref object of RootObj
-    eventHandler*: proc(self: Actr, event: Event): HandlerReturn {.nimcall.}
+    eventHandler*:
+      proc(self: Actr, sig: Signal, val: EventValue): HandlerReturn {.nimcall.}
     eventQueue: seq[Event]
     # children: seq[Actr[0'u8]] # TODO: future work
     irqNmbr: IrqNmbr
@@ -25,7 +27,8 @@ type
 
   ## An Actr has at least one EventHandler, which may optionally transition
   ## to another EventHandler in response to an Event; forming a state machine.
-  EventHandler* = proc(self: var Actr, event: Event): HandlerReturn {.nimcall.}
+  EventHandler* =
+    proc(self: var Actr, sig: Signal, val: EventValue): HandlerReturn {.nimcall.}
 
   ## Every EventHandler returns a HandlerReturn code to indicate
   ## how the event was processed.
@@ -57,7 +60,7 @@ template CRIT_EXIT() =
 template schedule(self: Actr) =
   ## Schedules the actr for execution by pending its interrupt in the NVIC
   # NOTE: The caller MUST be in a critical section in privileged mode
-  SIG.STIR.INTID(self.irqNmbr)
+  sig.SIG.STIR.INTID(self.irqNmbr)
 
 func post*(self: var Actr, e: Event) =
   ## Posts an event to the actr and schedules the actr for execution

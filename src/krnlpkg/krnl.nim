@@ -19,7 +19,7 @@ proc init*(self: var Krnl) =
   k = addr self # this should be the ONLY place where k is set
   self.vectorTable.initVectorTable()
 
-proc dispatchIsr*[N: static IrqNmbr]() {.asmNoStackFrame.} =
+proc dispatchIsr*[N: static IrqNmbr]() = #{.asmNoStackFrame.} =
   ## Dispatches the actr's next event to the actr with irqNmbr N.
   ## ATTENTION: This procedure is called in the handler context
   ## This procedure's only use is to be placed in the vector table.
@@ -32,21 +32,20 @@ proc dispatchIsr*[N: static IrqNmbr]() {.asmNoStackFrame.} =
     * BX with any register.
   ]#
   var actr = k.actrReg.getActr(N)
-  let
-    evnt = actr.popEvent()
-    handler = actr.eventHandler
+  let evnt = actr.popEvent()
   when defined(arm):
     asm """
       mov r0, %0
       mov r1, %1
-      mov lr, %2
-      ldr pc, #0xF0000000 ; return from exception
+      mov r2, %2
+      mov lr, %3
+      ldr pc, =0xFFFFFFF9 // return from exception, use MSP after return
       :
-      : "r"(`actr`), "r"(`evnt`), "r"(`handler`)
-      : "r0", "r1", "memory"
+      : "r"(`actr`), "r"(`evnt`.sig), "r"(`evnt`.val), "r"(`actr`->eventHandler)
+      : "r0", "r1", "r2", "memory"
     """
   else:
-    discard handler(actr, evnt)
+    discard actr.eventHandler(actr, evnt.sig, evnt.val)
 
 macro genDispatchIsrTable(): untyped =
   ## Builds `[dispatchIsr[0], dispatchIsr[1], ..., dispatchIsr[high(IrqNmbr)]]`,
@@ -73,11 +72,11 @@ proc registerActr*(actr: Actr) =
   assert actr != nil
   let irqNmbr = k.vectorTable.getUnusedIrqNmbr()
   if irqNmbr == invalidIrqNmbr:
-    # TODO: handle situation of too many actors, not enough interrupt slots
+    # TODO: ERROR: too many actors, not enough interrupt slots
     return
   k.actrReg.registerActr(actr, irqNmbr)
-  let handler = dispatchIsrTable[irqNmbr.int]
-  k.vectorTable.setIrqHandler(irqNmbr, handler)
+  let dispatchIsr = dispatchIsrTable[irqNmbr.int]
+  k.vectorTable.setIrqHandler(irqNmbr, dispatchIsr)
 
 proc registerSignals*(nsHash: NamespaceHash32, maxSig: uint32): SigPubToken =
   ## Register a series of signals with the kernel.

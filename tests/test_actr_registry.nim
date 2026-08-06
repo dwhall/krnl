@@ -19,22 +19,22 @@ test "SHOULD be able to register an actor":
   let
     a = Actr()
     n = IrqNmbr(12)
-  r.registerActr(addr a, n)
+  r.registerActr(a, n)
 
 test "SHOULD be able to get a registered actor":
   var r = ActrRegistry()
   let
     a = Actr()
     n = IrqNmbr(12)
-  r.registerActr(addr a, n)
+  r.registerActr(a, n)
   let aa = r.getActr(12)
-  check addr(a) == aa
+  check a == aa
 
 test "getting an unregisered irqNmbr should assert":
   var r = ActrRegistry()
   let
     a = Actr()
     n = IrqNmbr(12)
-  r.registerActr(addr a, n)
+  r.registerActr(a, n)
   expect Defect:
     discard r.getActr(99)
