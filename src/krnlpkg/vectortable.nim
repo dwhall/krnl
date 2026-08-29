@@ -37,7 +37,7 @@ proc default_Handler() {.exportc, noconv.} =
       discard
 
 # The non-volatile Vector Table used at power-on-reset; from vector_table.c
-let c_vectorTable* {.importc: "vectorTable", used.}: VectorTable
+let c_vectorTable* {.importc: "c_vectorTable", used.}: VectorTable
 
 converter toInterruptNumber*(exnNmbr: ExnNmbr): IrqNmbr =
   ## Converts an exception number to an interrupt number
