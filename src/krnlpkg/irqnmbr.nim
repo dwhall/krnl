@@ -7,5 +7,4 @@
 
 import plat
 
-type
-  IrqNmbr* = 0'u8..uint8(plat.platIrqCnt - 1'u8) # interrupts are external to the ARM core
+type IrqNmbr* = range[0 .. plat.platIrqCnt - 1] # interrupts are external to the ARM core

@@ -2,6 +2,7 @@
 ##
 ## Platform-specific definition stubs for testing
 
-const platIrqCnt* = 128
-const platFpuAvail* = true
-const platNvicPriorityBits* = 3
+const
+  platIrqCnt* = 128
+  platFpuAvail* = true
+  platNvicPriorityBits* = 3

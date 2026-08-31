@@ -60,7 +60,7 @@ template CRIT_EXIT() =
 template schedule(self: Actr) =
   ## Schedules the actr for execution by pending its interrupt in the NVIC
   # NOTE: The caller MUST be in a critical section in privileged mode
-  sig.SIG.STIR.INTID(self.irqNmbr)
+  sig.SIG.STIR.INTID(self.irqNmbr.uint32)
 
 func post*(self: var Actr, e: Event) =
   ## Posts an event to the actr and schedules the actr for execution

@@ -5,6 +5,6 @@
 ##
 
 const
-  platIrqCnt* = 48'u8
+  platIrqCnt* = 48
   platFpuAvail* = true
   platNvicPriorityBits* = 3
