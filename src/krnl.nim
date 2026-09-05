@@ -15,9 +15,6 @@ export ActrPriority
 import krnlpkg/signal
 export Signal
 
-import krnlpkg/[boot, debug_rtt]
-export boot, debugPrint
-
 import krnlpkg/krnl
 export krnl
 

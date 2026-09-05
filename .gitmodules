@@ -1,6 +1,3 @@
-[submodule "deps/RTT"]
-	path = deps/RTT
-	url = https://github.com/SEGGERMicro/RTT.git
 [submodule "deps/arm_cores"]
 	path = deps/arm_cores
 	url = https://github.com/dwhall/arm_cores.git
