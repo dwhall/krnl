@@ -13,13 +13,13 @@ type Krnl* = object
   vectorTable: VectorTable
 
 ## One shared mutable reference set only by krnl.init()
-var k: ptr Krnl
+var k: ref Krnl
 
-proc init*(self: var Krnl) =
-  k = addr self # this should be the ONLY place where k is set
-  for a in self.actrReg.mitems:
+proc init*(self: ref Krnl) =
+  k = self # this should be the ONLY place where k is set
+  for a in k.actrReg.mitems:
     a = nil
-  self.vectorTable.initVectorTable()
+  k.vectorTable.initVectorTable()
 
 proc dispatchIsr*[irqNmbr: static IrqNmbr]() = #{.asmNoStackFrame.} =
   ## Dispatches the actr's next event to the actr with irqNmbr N.
