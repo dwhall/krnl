@@ -2,7 +2,11 @@
 ##
 ## Platform-specific definition stubs for testing
 
-const
-  platIrqCnt* = 128
-  platFpuAvail* = true
-  platNvicPriorityBits* = 3
+func irqCnt*(): int {.compileTime.} =
+  128
+
+func fpuAvail*(): bool {.compileTime.} =
+  true
+
+func nvicPriorityBits*(): int {.compileTime.} =
+  3

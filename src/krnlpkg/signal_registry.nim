@@ -22,7 +22,7 @@ type
   SigPubToken* = uint32 # TODO: make distinct?
   SignalRegistry* = object
     publishers: Table[SigPubToken, SigTuple]
-    subscribers: Table[Signal, Bitflags[plat.platIrqCnt]]
+    subscribers: Table[Signal, Bitflags[plat.irqCnt()]]
 
 #proc contains*(self: SignalRegistry, sig: SigTuple): bool =
 #  self.publishers.hasVal(sig)

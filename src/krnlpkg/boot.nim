@@ -23,14 +23,14 @@ proc validateNvicPriorityConfig() {.inline.} =
   let n = firstSetBit(prio) - 1
   # If you reach this assert, either you used the wrong SVD file for your MCU
   # or the cpu/nvicPrioBits value in your SVD file is incorrect
-  assert plat.platNvicPriorityBits == n,
+  assert plat.nvicPriorityBits() == n,
     "Calculated priority bits does not match the declared platform value."
 
 proc initFpu(
     enableAutoStatePreserve: static uint32 = 1, enableLazyStacking: static uint32 = 1
 ) {.inline.} =
   ## Initializes the floating-point unit if present
-  when plat.platFpuAvail:
+  when plat.fpuAvail():
     FP.FPCCR.read().ASPEN(enableAutoStatePreserve).LSPEN(enableLazyStacking).write()
 
 proc setNvicPriorityGrouping(grouping: static uint32 = 0) {.inline.} =

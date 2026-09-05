@@ -17,7 +17,7 @@ import armv7m/core
 import irqnmbr, plat
 
 type
-  ExnNmbr = 1 .. (16 + plat.platIrqCnt)
+  ExnNmbr = 1 .. (16 + plat.irqCnt())
     # exceptions include those internal to the ARM core
     # and external interrupts
   ExnHandler = proc()

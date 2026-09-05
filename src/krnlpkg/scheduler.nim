@@ -19,8 +19,8 @@ import armv7m/[nvic, sig]
 import bitflags, actr_set, vectortable
 
 type Scheduler = object
-  actrRegistry: array[plat.platIrqCnt, ref Actr]
-  enabled: array[plat.platIrqCnt, bool]
+  actrRegistry: array[plat.irqCnt(), ref Actr]
+  enabled: array[plat.irqCnt(), bool]
 
 proc registerActr(schd: var Scheduler, actr: ref Actr) =
   ## Registers a actr with this kernel

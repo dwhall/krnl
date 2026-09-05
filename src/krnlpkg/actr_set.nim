@@ -9,21 +9,21 @@
 import armv7m/nvic
 import bitflags, plat
 
-type ActrSet* = Bitflags[plat.platIrqCnt]
+type ActrSet* = Bitflags[plat.irqCnt()]
 
 proc schedule*(actrset: ActrSet) =
   ## Schedules multiple actrs to activate by pending their interrupts in the NVIC
   ## In an ActrSet, the bit index corresponds to the actr's irqNmbr.
   ## The ActrSet set usually comes from the the subscribers to a signal.
   # NOTE: The caller MUST be in a critical section in privileged mode
-  when plat.platIrqCnt > 128:
+  when plat.irqCnt() > 128:
     for idx, bundle in actrset.pairs:
       NVIC.NVIC_ISPR(idx).write(bundle)
   else:
-    when plat.platIrqCnt > 0:
+    when plat.irqCnt() > 0:
       NVIC.NVIC_ISPR(0).write(actrset[0])
-    when plat.platIrqCnt > 32:
+    when plat.irqCnt() > 32:
       NVIC.NVIC_ISPR(1).write(actrset[1])
-    when plat.platIrqCnt > 64:
+    when plat.irqCnt() > 64:
       NVIC.NVIC_ISPR(2).write(actrset[2])
       NVIC.NVIC_ISPR(3).write(actrset[3])

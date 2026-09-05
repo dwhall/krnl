@@ -7,4 +7,4 @@
 
 import plat
 
-type IrqNmbr* = range[0 .. plat.platIrqCnt - 1] # interrupts are external to the ARM core
+type IrqNmbr* = range[0 .. plat.irqCnt() - 1] # interrupts are external to the ARM core

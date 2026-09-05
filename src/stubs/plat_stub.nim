@@ -4,7 +4,11 @@
 ## when no hardware platform is specified we use this stub file.
 ##
 
-const
-  platIrqCnt* = 48
-  platFpuAvail* = true
-  platNvicPriorityBits* = 3
+func irqCnt*(): int {.compileTime.} =
+  48
+
+func fpuAvail*(): bool {.compileTime.} =
+  true
+
+func nvicPriorityBits*(): int {.compileTime.} =
+  3
