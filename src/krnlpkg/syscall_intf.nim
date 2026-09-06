@@ -16,12 +16,12 @@ type
     of SyscallInvalid:
       discard
     of SyscallRegisterActr:
-      actrAddr*: Actr
+      actrAddr*: ptr Actr
     of SyscallRegisterSignals:
       nsHash*: NamespaceHash32
       maxSig*: uint32
 
-  SyscallRetval* = object
+  SyscallResult* = object
     case syscallId*: SyscallId
     of SyscallInvalid:
       discard
@@ -30,32 +30,32 @@ type
     of SyscallRegisterSignals:
       token*: SigPubToken
 
-template syscall(syscallArgs: ptr SyscallArgs): SyscallRetval =
-  ## Issues an SVC with R0 = ptr to SyscallArgs, R1 = ptr to caller-owned
-  ## SyscallRetval buffer. The syscall impl writes the result directly into result;
+proc syscall(syscallArgs: ptr SyscallArgs): SyscallResult {.inline.} =
+  ## Issues an SVC with R0 = ptr to SyscallArgs, R1 = ptr to result.
+  ## The syscall impl writes the result directly into result;
   ## no value is communicated back via R0.
   when defined(arm):
-    let pRetval = addr result
+    let pResult = addr result
     asm """
       mov r0, %0
       mov r1, %1
       svc #0
       :
-      : "r"(`syscallArgs`), "r"(`pRetval`)
+      : "r"(`syscallArgs`), "r"(`pResult`)
       : "r0", "r1", "memory"
     """
     result
   else:
     {.error: "syscall is only supported for ARM targets".}
 
-proc syscallRegisterActr*(actrAddr: Actr): SyscallRetval =
+proc syscallRegisterActr*(actrAddr: ptr Actr): SyscallResult =
   ## Issues a syscall to register an actor with the kernel
   let args = SyscallArgs(syscallId: SyscallRegisterActr, actrAddr: actrAddr)
   syscall(addr args)
 
 proc syscallRegisterSignals*(
     dottedNames: static string, maxSig: uint32
-): SyscallRetval =
+): SyscallResult =
   const nsHash = NS32(dottedNames)
   let args =
     SyscallArgs(syscallId: SyscallRegisterSignals, nsHash: nsHash, maxSig: maxSig)

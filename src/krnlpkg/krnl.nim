@@ -9,17 +9,18 @@ import actr, irqnmbr, namespace, signal_registry, vectortable
 
 type Krnl* = object
   sigReg: SignalRegistry
-  actrReg: array[IrqNmbr, Actr]
+  actrReg: array[IrqNmbr, ptr Actr]
   vectorTable: VectorTable
 
 ## One shared mutable reference set only by krnl.init()
-var k: ref Krnl
+var k: ptr Krnl
 
-proc init*(self: ref Krnl) =
+proc init*(self: ptr Krnl) =
   k = self # this should be the ONLY place where k is set
-  for a in k.actrReg.mitems:
-    a = nil
   k.vectorTable.initVectorTable()
+
+proc exitPrivilegedMode*() =
+  CONTROL.nPRIV(1)
 
 proc dispatchIsr*[irqNmbr: static IrqNmbr]() = #{.asmNoStackFrame.} =
   ## Dispatches the actr's next event to the actr with irqNmbr N.
@@ -35,7 +36,7 @@ proc dispatchIsr*[irqNmbr: static IrqNmbr]() = #{.asmNoStackFrame.} =
   ]#
   assert k.actrReg[irqNmbr] != nil, "Actr not registered"
   var actr = k.actrReg[irqNmbr]
-  let evnt = actr.popEvent()
+  let evnt = actr[].popEvent()
   when defined(arm):
     asm """
       mov r0, %0
@@ -66,7 +67,7 @@ const dispatchIsrTable = [
   dispatchIsr[IrqNmbr(3)],
 ]
 
-proc registerActr*(actr: Actr) =
+proc registerActr*(actr: ptr Actr) =
   ## Register the actor with the kernel, give it an interrupt slot
   ## so it may be activated by pending an interrupt.
   ## Returns ... TBD
@@ -83,7 +84,3 @@ proc registerActr*(actr: Actr) =
 proc registerSignals*(nsHash: NamespaceHash32, maxSig: uint32): SigPubToken =
   ## Register a series of signals with the kernel.
   k.sigReg.registerSignals(nsHash, maxSig)
-
-func runForever*() {.noreturn.} =
-  while true:
-    WFI()

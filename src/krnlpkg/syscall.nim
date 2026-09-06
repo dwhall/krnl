@@ -9,16 +9,16 @@ import krnl, syscall_intf
 type StackedFrame = object
   r0, r1, r2, r3, r12, lr, pc, xpsr: uint32
 
-proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallRetval {.inline.} =
+proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallResult {.inline.} =
   if pargs == nil:
     result.syscallId = SyscallInvalid
   else:
-    result.syscallId = pargs[].syscallId
+    result.syscallId = pargs.syscallId
     case result.syscallId
     of SyscallRegisterActr:
-      registerActr(pargs[].actrAddr)
+      registerActr(pargs.actrAddr)
     of SyscallRegisterSignals:
-      result.token = registerSignals(pargs[].nsHash, pargs[].maxSig)
+      result.token = registerSignals(pargs.nsHash, pargs.maxSig)
     else:
       discard
 
@@ -26,5 +26,5 @@ proc SVC_Handler*() {.exportc, noconv.} =
   let
     mainStackPtr = cast[ptr StackedFrame](MSP.read().uint32)
     pargs = cast[ptr SyscallArgs](mainStackPtr.r0)
-    pretval = cast[ptr SyscallRetval](mainStackPtr.r1)
-  pretval[] = dispatchSyscall(pargs)
+    presult = cast[ptr SyscallResult](mainStackPtr.r1)
+  presult[] = dispatchSyscall(pargs)

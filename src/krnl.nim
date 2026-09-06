@@ -18,5 +18,5 @@ export Signal
 import krnlpkg/krnl
 export krnl
 
-import krnlpkg/syscall
-export syscall
+import krnlpkg/syscall_intf
+export syscall_intf
