@@ -4,8 +4,8 @@
 ##
 
 import armv7m/[core, sig]
-import event, irqnmbr, priority, signal
-import proj
+import event, priority, signal
+import plat, proj
 
 type
   ## An Actr is an active object with an event handler that processes events
@@ -13,7 +13,7 @@ type
   ## spawn child Actrs and change its event handler for the next event.
   ## Changing the event handler is how to implement a state machine.
   ## The irqNmbr is a unique value used to index into
-  ## the interrupt handler array in the VectorTable.
+  ## the interrupt handler array in krnl's VectorTable.
   Actr* = object of RootObj
     eventHandler*: EventHandler
     eventQueue: seq[Event]

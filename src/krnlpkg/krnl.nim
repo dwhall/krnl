@@ -4,20 +4,31 @@
 ##
 
 import std/macros
-import armv7m/core
-import actr, irqnmbr, namespace, signal_registry, vectortable
+import armv7m/[core, scb]
+import plat
+import actr, namespace, signal_registry, vectortable
 
 type Krnl* = object
   sigReg: SignalRegistry
   actrReg: array[IrqNmbr, ptr Actr]
-  vectorTable: VectorTable
+  vectorTable: RamVectorTable
 
 ## One shared mutable reference set only by krnl.init()
 var k: ptr Krnl
 
+proc unusedIsr() =
+  ## This procedure is used to fill unused slots in the vector table.
+  ## It should never be called.  It is used by this module for the logic
+  ## to know which slots are unused
+  while true:
+    discard
+
 proc init*(self: ptr Krnl) =
   k = self # this should be the ONLY place where k is set
-  k.vectorTable.initVectorTable()
+  initRamVectorTable(k.vectorTable, unusedIsr)
+
+proc switchToRamVectorTable*() =
+  SCB.VTOR.write(cast[uint32](addr k.vectorTable))
 
 proc exitPrivilegedMode*() =
   CONTROL.nPRIV(1)
@@ -73,10 +84,11 @@ proc registerActr*(actr: ptr Actr) =
   ## Returns ... TBD
   # Temporary kernel-side adapter for the RegisterActor syscall path.
   assert actr != nil
-  let irqNmbr = k.vectorTable.getUnusedIrqNmbr()
-  if irqNmbr == invalidIrqNmbr:
+  let findResult = k.vectorTable.findIrqHandler(unusedIsr)
+  if findResult < 0:
     # TODO: ERROR: too many actors, not enough interrupt slots
     return
+  let irqNmbr = IrqNmbr(findResult)
   k.actrReg[irqNmbr] = actr
   let dispatchIsr = dispatchIsrTable[irqNmbr.int]
   k.vectorTable.setIrqHandler(irqNmbr, dispatchIsr)

@@ -2,7 +2,7 @@
 ##
 
 import armv7m/[core, nvic]
-import irqnmbr, math, plat
+import math, plat
 
 type
   ActrPriority* = 0 .. (0xFF shr plat.nvicPriorityBits()) # 0 is the lowest priority

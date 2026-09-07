@@ -16,7 +16,7 @@
 ##
 
 import std/tables
-import bitflags, irqnmbr, namespace, plat, signal
+import bitflags, namespace, plat, signal
 
 type
   SigPubToken* = uint32 # TODO: make distinct?
@@ -33,7 +33,7 @@ proc registerSignals*(
   ## Registers a range signals from 0 .. maxSig in the registry
   let
     token = SigPubToken(0) # TODO: generate a real token
-    sigTuple = (nsHash:nsHash, sig:maxSig)
+    sigTuple = (nsHash: nsHash, sig: maxSig)
   self.publishers[token] = sigTuple
 
 proc subscribe*(self: var SignalRegistry, sig: SigTuple, irqNmbr: IrqNmbr) =
@@ -59,4 +59,4 @@ iterator pairs*(self: SignalRegistry, sig: Signal): tuple[key: uint16, val: uint
       yield (idx, bf)
       inc idx
   ]#
-  yield (key:0'u16, val:0'u32) # placeholder
+  yield (key: 0'u16, val: 0'u32) # placeholder
