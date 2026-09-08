@@ -32,6 +32,7 @@ proc switchToRamVectorTable*() =
 
 proc exitPrivilegedMode*() =
   CONTROL.nPRIV(1)
+  ISB()
 
 proc dispatchIsr*[irqNmbr: static IrqNmbr]() = #{.asmNoStackFrame.} =
   ## Dispatches the actr's next event to the actr with irqNmbr N.
