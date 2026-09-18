@@ -9,9 +9,9 @@ import plat
 import actr, namespace, signal_registry, vectortable
 
 type Krnl* = object
+  vectorTable: RamVectorTable
   sigReg: SignalRegistry
   actrReg: array[IrqNmbr, ptr Actr]
-  vectorTable: RamVectorTable
 
 ## One shared mutable reference set only by krnl.init()
 var k: ptr Krnl

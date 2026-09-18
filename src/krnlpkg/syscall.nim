@@ -1,7 +1,9 @@
 ## Copyright 2026 Dean Hall See LICENSE for details
 ##
-## KRNL: System call implementation and SVC dispatcher
+## KRNL: System call implementation and dispatcher
 ##
+
+{.used.} # we import this module, but don't call any of its procs directly.
 
 import armv7m/core
 import krnl, syscall_intf
@@ -22,9 +24,20 @@ proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallResult {.inline.} =
     else:
       discard
 
-proc SVC_Handler*() {.exportc, noconv.} =
+proc SVC_HandlerBody(frame: ptr StackedFrame) {.exportc, noconv.} =
+  ## This handler implements the transition to privileged mode for syscalls.
+  ## With this name, the linker places this handler in the nonvol vector table,
+  ## which is then copied to the ram vector table at boot.
   let
-    mainStackPtr = cast[ptr StackedFrame](MSP.read().uint32)
-    pargs = cast[ptr SyscallArgs](mainStackPtr.r0)
-    presult = cast[ptr SyscallResult](mainStackPtr.r1)
+    pargs = cast[ptr SyscallArgs](frame.r0)
+    presult = cast[ptr SyscallResult](frame.r1)
   presult[] = dispatchSyscall(pargs)
+
+proc SVC_Handler() {.exportc, noconv, asmNoStackFrame.} =
+  asm """
+    tst lr, #4       // EXC_RETURN bit 2: 0 = exception used MSP, 1 = used PSP
+    ite eq
+    mrseq r0, msp     // bit clear: pass main stack pointer to SVC_HandlerBody
+    mrsne r0, psp     // bit set: pass process stack pointer to SVC_HandlerBody
+    b SVC_HandlerBody // tail-call with r0 = ptr to stacked frame (StackedFrame*)
+  """

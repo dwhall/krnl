@@ -12,3 +12,6 @@ func fpuAvail*(): bool {.compileTime.} =
 
 func nvicPriorityBits*(): int {.compileTime.} =
   3
+
+func vtorAlignment*(): int {.compileTime.} =
+  128
