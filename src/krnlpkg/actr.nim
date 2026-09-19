@@ -45,25 +45,19 @@ proc initActr*(self: var Actr, evntQueLen: uint8, prio: ActrPriority) =
 func setIrqNmbr*(self: var Actr, irqNmbr: IrqNmbr) =
   self.irqNmbr = irqNmbr
 
-template CRIT_ENTER() =
-  disableIrq()
-
-template CRIT_EXIT() =
-  enableIrq()
-
 template schedule(self: Actr) =
-  ## Schedules the actr for execution by pending its interrupt in the NVIC
+  ## Schedules the actr for execution by pending its exception in the NVIC
   # NOTE: The caller MUST be in a critical section in privileged mode
-  sig.SIG.STIR.INTID(self.irqNmbr.uint32)
+  # NOTE: The processor ignores any attempt to write a numbver in the range 0-15
+  let exnNmbr = 16'u32 + self.irqNmbr.uint32
+  sig.SIG.STIR.INTID(exnNmbr)
 
 func post*(self: var Actr, e: Event) =
   ## Posts an event to the actr and schedules the actr for execution
   ## within a critical section
   # NOTE: The caller MUST be in privileged mode
-  CRIT_ENTER()
   self.eventQueue.add(e)
   self.schedule()
-  CRIT_EXIT()
 
 func popEvent*(self: var Actr): Event =
   ## Pops the next event from the actr's event queue

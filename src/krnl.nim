@@ -13,7 +13,7 @@ import krnlpkg/priority
 export ActrPriority
 
 import krnlpkg/signal
-export Signal
+export Sig, Signal
 
 import krnlpkg/krnl
 export krnl

@@ -13,19 +13,15 @@ type Krnl* = object
   sigReg: SignalRegistry
   actrReg: array[IrqNmbr, ptr Actr]
 
+# The non-volatile Vector Table used at power-on-reset; from vector_table.c
+let c_vectorTable {.importc: "c_vectorTable".}: VectorTable
+
 ## One shared mutable reference set only by krnl.init()
 var k: ptr Krnl
 
-proc unusedIsr() =
-  ## This procedure is used to fill unused slots in the vector table.
-  ## It should never be called.  It is used by this module for the logic
-  ## to know which slots are unused
-  while true:
-    discard
-
-proc init*(self: ptr Krnl) =
+proc initKrnl*(self: ptr Krnl) =
   k = self # this should be the ONLY place where k is set
-  initRamVectorTable(k.vectorTable, unusedIsr)
+  k.vectorTable = c_vectorTable
 
 proc switchToRamVectorTable*() =
   SCB.VTOR.write(cast[uint32](addr k.vectorTable))
@@ -34,7 +30,7 @@ proc exitPrivilegedMode*() =
   CONTROL.nPRIV(1)
   ISB()
 
-proc dispatchIsr*[irqNmbr: static IrqNmbr]() = #{.asmNoStackFrame.} =
+proc dispatchIsr*[irqNmbr: static IrqNmbr]() {.noconv.} =
   ## Dispatches the actr's next event to the actr with irqNmbr N.
   ## ATTENTION: This procedure is called in the handler context
   ## This procedure's only use is to be placed in the vector table.
@@ -63,6 +59,7 @@ proc dispatchIsr*[irqNmbr: static IrqNmbr]() = #{.asmNoStackFrame.} =
   else:
     discard actr.eventHandler(actr, evnt.sig, evnt.val)
 
+# TODO:
 # macro genDispatchIsrTable(): untyped =
 #   ## Static table mapping each IrqNmbr to its dispatchIsr[N] proc.
 #   ## Builds `[dispatchIsr[0], dispatchIsr[1], ..., dispatchIsr[high(IrqNmbr)]]`,
@@ -79,13 +76,15 @@ const dispatchIsrTable = [
   dispatchIsr[IrqNmbr(3)],
 ]
 
+proc default_Handler() {.importc: "default_Handler", noconv.}
+
 proc registerActr*(actr: ptr Actr) =
   ## Register the actor with the kernel, give it an interrupt slot
   ## so it may be activated by pending an interrupt.
   ## Returns ... TBD
   # Temporary kernel-side adapter for the RegisterActor syscall path.
   assert actr != nil
-  let findResult = k.vectorTable.findIrqHandler(unusedIsr)
+  let findResult = k.vectorTable.findIrqHandler(default_Handler)
   if findResult < 0:
     # TODO: ERROR: too many actors, not enough interrupt slots
     return
