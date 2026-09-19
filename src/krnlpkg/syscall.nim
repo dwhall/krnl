@@ -24,20 +24,26 @@ proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallResult {.inline.} =
     else:
       discard
 
-proc SVC_HandlerBody(frame: ptr StackedFrame) {.exportc, noconv.} =
+proc SVC_HandlerBody(frame: ptr StackedFrame, svcArg: uint8) {.exportc, noconv.} =
   ## This handler implements the transition to privileged mode for syscalls.
   ## With this name, the linker places this handler in the nonvol vector table,
   ## which is then copied to the ram vector table at boot.
-  let
-    pargs = cast[ptr SyscallArgs](frame.r0)
-    presult = cast[ptr SyscallResult](frame.r1)
-  presult[] = dispatchSyscall(pargs)
+  case svcArg
+  of 0'u8:
+    let
+      pargs = cast[ptr SyscallArgs](frame.r0)
+      presult = cast[ptr SyscallResult](frame.r1)
+    presult[] = dispatchSyscall(pargs)
+  else:
+    discard
 
 proc SVC_Handler() {.exportc, noconv, asmNoStackFrame.} =
   asm """
-    tst lr, #4       // EXC_RETURN bit 2: 0 = exception used MSP, 1 = used PSP
-    ite eq
-    mrseq r0, msp     // bit clear: pass main stack pointer to SVC_HandlerBody
-    mrsne r0, psp     // bit set: pass process stack pointer to SVC_HandlerBody
-    b SVC_HandlerBody // tail-call with r0 = ptr to stacked frame (StackedFrame*)
+    tst lr, #4          // EXC_RETURN bit 2: 0 = exn used MSP, 1 = used PSP
+    ite eq              // Determine which stack pointer is active
+    mrseq r0, msp
+    mrsne r0, psp       // Stack pointer is in R0
+    ldr   r1, [r0, #24] // stacked PC is in R1
+    ldrb  r1, [r1, #-2] // SVC arg is in R1
+    b SVC_HandlerBody   // tail-call with r0 = ptr to StackedFrame
   """
