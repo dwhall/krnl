@@ -3,10 +3,14 @@
 ## KRNL
 ##
 
-import std/macros
-import armv7m/[core, scb]
-import plat
+import std/math
+import armv7m/[core, nvic, scb]
+import plat, proj
 import actr, namespace, signal_registry, vectortable
+
+# TODO: armabi module?
+type StackedFrame = object
+  r0, r1, r2, r3, r12, lr, pc, xpsr: uint32
 
 type Krnl* = object
   vectorTable: RamVectorTable
@@ -20,6 +24,7 @@ let c_vectorTable {.importc: "c_vectorTable".}: VectorTable
 var k: ptr Krnl
 
 proc initKrnl*(self: ptr Krnl) =
+  ## Saves a reference to the Krnl and COPIES the non-vol vector table to RAM
   k = self # this should be the ONLY place where k is set
   k.vectorTable = c_vectorTable
 
@@ -30,34 +35,33 @@ proc exitPrivilegedMode*() =
   CONTROL.nPRIV(1)
   ISB()
 
-proc dispatchIsr*[irqNmbr: static IrqNmbr]() {.noconv.} =
-  ## Dispatches the actr's next event to the actr with irqNmbr N.
-  ## ATTENTION: This procedure is called in the handler context
-  ## This procedure's only use is to be placed in the vector table.
-  #[
-    B1.5.8 Exception return behavior
-    An exception return occurs when the processor is in Handler mode and
-    one of the following instructions loads a value of 0xFXXXXXXX into the PC:
-    * POP/LDM that includes loading the PC.
-    * LDR with PC as a destination.
-    * BX with any register.
-  ]#
+proc dispatchIsrBody(
+    frame: ptr StackedFrame, irqNmbr: IrqNmbr
+) {.exportc: "dispatchIsrBody", noconv.} =
+  ## Dispatches the actr's next event from its queue to its eventHandler
+  ## and prepare the stackframe so that when we exit this ISR,
+  ## we execute the actr's eventHandler with the proper arguments
   assert k.actrReg[irqNmbr] != nil, "Actr not registered"
   var actr = k.actrReg[irqNmbr]
   let evnt = actr[].popEvent()
-  when defined(arm):
-    asm """
-      mov r0, %0
-      mov r1, %1
-      mov r2, %2
-      mov lr, %3
-      ldr pc, =0xFFFFFFF9 // return from exception, use MSP after return
-      :
-      : "r"(`actr`), "r"(`evnt`.sig), "r"(`evnt`.val), "r"(`actr`->eventHandler)
-      : "r0", "r1", "r2", "memory"
-    """
-  else:
-    discard actr.eventHandler(actr, evnt.sig, evnt.val)
+  frame.r0 = cast[uint32](actr)
+  frame.r1 = evnt.sig
+  frame.r2 = evnt.val
+  frame.lr = cast[uint32](proj.lowPowerRunForever)
+  frame.pc = cast[uint32](actr.eventHandler)
+
+proc dispatchIsr[irqNmbr: static IrqNmbr]() {.noconv, asmNoStackFrame.} =
+  ## This isr MUST be placed directly in the vector table
+  ## so that SP points at the stacked exception frame on entry
+  ## before dispatchIsrBody() rewrites it.
+  # irqNmbr is a `static` (compile-time) value, so we must use .emit
+  # to splice it in as an immediate ("n" constraint)
+  asm "mov r0, sp"
+  {.emit: ["asm (\"mov r1, %0\"\n\t:\n\t: \"n\" (", irqNmbr, "));\n"].}
+  asm """
+    bl dispatchIsrBody
+    ldr pc, =0xFFFFFFF9 // force exception return to Thread mode, use MSP
+  """
 
 # TODO:
 # macro genDispatchIsrTable(): untyped =
@@ -69,14 +73,32 @@ proc dispatchIsr*[irqNmbr: static IrqNmbr]() {.noconv.} =
 #     result.add newTree(nnkBracketExpr, ident"dispatchIsr", newLit(uint8 n))
 #
 # const dispatchIsrTable: array[IrqNmbr, proc()] = [
-const dispatchIsrTable = [
-  dispatchIsr[IrqNmbr(0)],
-  dispatchIsr[IrqNmbr(1)],
-  dispatchIsr[IrqNmbr(2)],
-  dispatchIsr[IrqNmbr(3)],
-]
+const dispatchIsrTable =
+  [dispatchIsr[0], dispatchIsr[1], dispatchIsr[2], dispatchIsr[3]]
+
+proc enableIrq(irqNmbr: IrqNmbr) =
+  ## Clears any pending interrupt and enables it
+  let (regIdx, bitIdx) = divmod(irqNmbr.uint32, 32)
+  case regIdx
+  of 0:
+    NVIC.NVIC_ICPR(0).read().CLRPEND(bitIdx, 1).write()
+    NVIC.NVIC_ISER(0).read().SETENA(bitIdx, 1).write()
+  of 1:
+    NVIC.NVIC_ICPR(1).read().CLRPEND(bitIdx, 1).write()
+    NVIC.NVIC_ISER(1).read().SETENA(bitIdx, 1).write()
+  else:
+    assert irqNmbr < 64, "Fill in more cases"
 
 proc default_Handler() {.importc: "default_Handler", noconv.}
+
+proc registerSignals*(nsHash: NamespaceHash32, maxSig: uint32): SigPubToken =
+  ## Register a series of signals with the kernel.
+  k.sigReg.registerSignals(nsHash, maxSig)
+
+proc registerIrqHandler*(irqNmbr: IrqNmbr, irqHandler: IrqHandler) =
+  ## Sets the handler in the RAM vector table and enables the interrupt
+  k.vectorTable.setIrqHandler(irqNmbr, irqHandler)
+  enableIrq(irqNmbr)
 
 proc registerActr*(actr: ptr Actr) =
   ## Register the actor with the kernel, give it an interrupt slot
@@ -89,10 +111,7 @@ proc registerActr*(actr: ptr Actr) =
     # TODO: ERROR: too many actors, not enough interrupt slots
     return
   let irqNmbr = IrqNmbr(findResult)
+  actr[].setIrqNmbr(irqNmbr)
   k.actrReg[irqNmbr] = actr
   let dispatchIsr = dispatchIsrTable[irqNmbr.int]
-  k.vectorTable.setIrqHandler(irqNmbr, dispatchIsr)
-
-proc registerSignals*(nsHash: NamespaceHash32, maxSig: uint32): SigPubToken =
-  ## Register a series of signals with the kernel.
-  k.sigReg.registerSignals(nsHash, maxSig)
+  registerIrqHandler(irqNmbr, dispatchIsr)

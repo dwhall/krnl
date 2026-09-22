@@ -3,13 +3,16 @@
 ## KRNL: System call interface and SVC dispatcher
 ##
 
-import actr, namespace, signal_registry
+import plat
+import actr, krnl, namespace, signal_registry
+import vectortable # for IrqHandler
 
 type
   SyscallId* = enum
     SyscallInvalid
     SyscallRegisterActr
     SyscallRegisterSignals # SyscallEnableTimerEvent # How to catch the event (no name)?
+    SyscallRegisterIrqHandler
 
   SyscallArgs* = object
     case syscallId*: SyscallId
@@ -20,12 +23,13 @@ type
     of SyscallRegisterSignals:
       nsHash*: NamespaceHash32
       maxSig*: uint32
+    of SyscallRegisterIrqHandler:
+      irqNmbr*: IrqNmbr
+      irqHandler*: IrqHandler
 
   SyscallResult* = object
     case syscallId*: SyscallId
-    of SyscallInvalid:
-      discard
-    of SyscallRegisterActr:
+    of SyscallInvalid, SyscallRegisterActr, SyscallRegisterIrqHandler:
       discard
     of SyscallRegisterSignals:
       token*: SigPubToken
@@ -61,6 +65,10 @@ proc syscallRegisterSignals*(
     SyscallArgs(syscallId: SyscallRegisterSignals, nsHash: nsHash, maxSig: maxSig)
   syscall(addr args)
 
-  ## Issues a syscall to publishes an event to all subscribers of the event's signal.
-  ## The token must have been obtained from a prior call to syscallRegisterSignals.
-  discard
+proc syscallRegisterIrqHandler*(
+    irqNmbr: IrqNmbr, irqHandler: IrqHandler
+): SyscallResult =
+  let args = SyscallArgs(
+    syscallId: SyscallRegisterIrqHandler, irqNmbr: irqNmbr, irqHandler: irqHandler
+  )
+  syscall(addr args)

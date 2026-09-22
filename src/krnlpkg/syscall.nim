@@ -21,6 +21,8 @@ proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallResult {.inline.} =
       registerActr(pargs.actrAddr)
     of SyscallRegisterSignals:
       result.token = registerSignals(pargs.nsHash, pargs.maxSig)
+    of SyscallRegisterIrqHandler:
+      registerIrqHandler(pargs.irqNmbr, pargs.irqHandler)
     else:
       discard
 
@@ -28,14 +30,13 @@ proc SVC_HandlerBody(frame: ptr StackedFrame, svcArg: uint8) {.exportc, noconv.}
   ## This handler implements the transition to privileged mode for syscalls.
   ## With this name, the linker places this handler in the nonvol vector table,
   ## which is then copied to the ram vector table at boot.
-  case svcArg
-  of 0'u8:
-    let
-      pargs = cast[ptr SyscallArgs](frame.r0)
-      presult = cast[ptr SyscallResult](frame.r1)
-    presult[] = dispatchSyscall(pargs)
-  else:
-    discard
+  # TODO: handle more than SVC #0
+  # case svcArg
+  # of 0'u8:
+  let
+    pargs = cast[ptr SyscallArgs](frame.r0)
+    presult = cast[ptr SyscallResult](frame.r1)
+  presult[] = dispatchSyscall(pargs)
 
 proc SVC_Handler() {.exportc, noconv, asmNoStackFrame.} =
   asm """

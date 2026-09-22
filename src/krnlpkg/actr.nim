@@ -48,9 +48,7 @@ func setIrqNmbr*(self: var Actr, irqNmbr: IrqNmbr) =
 template schedule(self: Actr) =
   ## Schedules the actr for execution by pending its exception in the NVIC
   # NOTE: The caller MUST be in a critical section in privileged mode
-  # NOTE: The processor ignores any attempt to write a numbver in the range 0-15
-  let exnNmbr = 16'u32 + self.irqNmbr.uint32
-  sig.SIG.STIR.INTID(exnNmbr)
+  sig.SIG.STIR.INTID(self.irqNmbr.uint32)
 
 func post*(self: var Actr, e: Event) =
   ## Posts an event to the actr and schedules the actr for execution
