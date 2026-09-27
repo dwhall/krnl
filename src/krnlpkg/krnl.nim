@@ -3,25 +3,46 @@
 ## KRNL
 ##
 
-import std/math
+import std/[math, volatile]
 import armv7m/[core, nvic, scb]
 import plat, proj
 import actr, namespace, signal_registry, vectortable
-
-# TODO: armabi module?
-type StackedFrame = object
-  r0, r1, r2, r3, r12, lr, pc, xpsr: uint32
 
 type Krnl* = object
   vectorTable: RamVectorTable
   sigReg: SignalRegistry
   actrReg: array[IrqNmbr, ptr Actr]
 
+# TODO: armabi module?
+type StackedFrame = object
+  r0, r1, r2, r3, r12, lr, pc, xpsr: uint32
+
+type NvicPriority = uint8 # 0 is the highest priority
+converter toNvicPriority*(prio: ActrPriority): NvicPriority =
+  ## Converts ActrPriority where 0 is the lowest priority
+  ## to NvicPriority where 0 is the highest priority
+  NvicPriority(
+    ((0xFF'u32 shr plat.nvicPriorityBits()) + 1'u32 - prio.uint32) shl
+      plat.nvicPriorityBits()
+  )
+
+const
+  # Actr interrupt priorities must never be more urgent than a dev
+  # so that an actr's dispatchIsr always tail-chains after a device ISR
+  # (which may post() to it) rather than preempting it.
+  # NVIC priority of device (non-actr) ISRs.
+  deviceIrqPriority: NvicPriority = 0
+  xpsrThumbOnly = 0x01000000'u32 # xPSR.T set; IPSR, ICI/IT and flags cleared
+
 # The non-volatile Vector Table used at power-on-reset; from vector_table.c
 let c_vectorTable {.importc: "c_vectorTable".}: VectorTable
 
 ## One shared mutable reference set only by krnl.init()
 var k: ptr Krnl
+
+# Forward decls
+proc setNvicPriority(irqNmbr: IrqNmbr, nvicPrio: NvicPriority)
+proc setPriority(irqNmbr: IrqNmbr, prio: ActrPriority)
 
 proc initKrnl*(self: ptr Krnl) =
   ## Saves a reference to the Krnl and COPIES the non-vol vector table to RAM
@@ -36,11 +57,15 @@ proc exitPrivilegedMode*() =
   ISB()
 
 proc dispatchIsrBody(
-    frame: ptr StackedFrame, irqNmbr: IrqNmbr
-) {.exportc: "dispatchIsrBody", noconv.} =
+    frame: ptr StackedFrame, irqNmbr: IrqNmbr, excReturn: uint32
+) {.noconv.} =
   ## Dispatches the actr's next event from its queue to its eventHandler
   ## and prepare the stackframe so that when we exit this ISR,
   ## we execute the actr's eventHandler with the proper arguments
+  # The frame is only ours to rewrite if this exception returns to Thread mode
+  # (EXC_RETURN 0xFFFFFFF9 or 0xFFFFFFE9). Otherwise it belongs to a preempted
+  # ISR, which means actr/device IRQ priorities are misconfigured.
+  assert (excReturn and 0xF'u32) == 0x9'u32, "dispatchIsr preempted another ISR"
   assert k.actrReg[irqNmbr] != nil, "Actr not registered"
   var actr = k.actrReg[irqNmbr]
   let evnt = actr[].popEvent()
@@ -48,7 +73,9 @@ proc dispatchIsrBody(
   frame.r1 = evnt.sig
   frame.r2 = evnt.val
   frame.lr = cast[uint32](proj.lowPowerRunForever)
-  frame.pc = cast[uint32](actr.eventHandler)
+  frame.pc = cast[uint32](actr[].eventHandler)
+  # Don't carry the interrupted code's IT/ICI state into the eventHandler
+  frame.xpsr = xpsrThumbOnly
 
 proc dispatchIsr[irqNmbr: static IrqNmbr]() {.noconv, asmNoStackFrame.} =
   ## This isr MUST be placed directly in the vector table
@@ -59,8 +86,8 @@ proc dispatchIsr[irqNmbr: static IrqNmbr]() {.noconv, asmNoStackFrame.} =
   asm "mov r0, sp"
   {.emit: ["asm (\"mov r1, %0\"\n\t:\n\t: \"n\" (", irqNmbr, "));\n"].}
   asm """
-    bl dispatchIsrBody
-    ldr pc, =0xFFFFFFF9 // force exception return to Thread mode, use MSP
+    mov r2, lr          // EXC_RETURN, left intact for the exception return
+    b `dispatchIsrBody` // tail call — its own epilogue triggers the exception return
   """
 
 # TODO:
@@ -96,8 +123,10 @@ proc registerSignals*(nsHash: NamespaceHash32, maxSig: uint32): SigPubToken =
   k.sigReg.registerSignals(nsHash, maxSig)
 
 proc registerIrqHandler*(irqNmbr: IrqNmbr, irqHandler: IrqHandler) =
-  ## Sets the handler in the RAM vector table and enables the interrupt
+  ## Sets the device handler in the RAM vector table,
+  ## sets its priority and enables the interrupt
   k.vectorTable.setIrqHandler(irqNmbr, irqHandler)
+  setNvicPriority(irqNmbr, deviceIrqPriority)
   enableIrq(irqNmbr)
 
 proc registerActr*(actr: ptr Actr) =
@@ -114,4 +143,36 @@ proc registerActr*(actr: ptr Actr) =
   actr[].setIrqNmbr(irqNmbr)
   k.actrReg[irqNmbr] = actr
   let dispatchIsr = dispatchIsrTable[irqNmbr.int]
-  registerIrqHandler(irqNmbr, dispatchIsr)
+  k.vectorTable.setIrqHandler(irqNmbr, dispatchIsr)
+  setPriority(irqNmbr, actr[].priority)
+  enableIrq(irqNmbr)
+
+proc setNvicPriority(irqNmbr: IrqNmbr, nvicPrio: NvicPriority) =
+  ## Sets the NVIC priority of the given external interrupt.
+  # NVIC_IPR is byte-accessible, one byte per interrupt, so a single
+  # byte store needs no read-modify-write and no critical section.
+
+  when true:
+    const nvicIprBase = 0xE000E400'u32
+    volatileStore(cast[ptr uint8](nvicIprBase + irqNmbr.uint32), nvicPrio)
+  else:
+    # TODO: fix metagenerator.nim:106 (non-static index)
+    let
+      (regIdx, fieldIdx) = divmod(irqNmbr.uint32, 4)
+      reg = NVIC.NVIC_IPR(regIdx)
+
+    case fieldIdx
+    of 0:
+      reg.read().PRI_N0(nvicPrio).write()
+    of 1:
+      reg.read().PRI_N1(nvicPrio).write()
+    of 2:
+      reg.read().PRI_N2(nvicPrio).write()
+    of 3:
+      reg.read().PRI_N3(nvicPrio).write()
+    else:
+      discard
+
+proc setPriority(irqNmbr: IrqNmbr, prio: ActrPriority) =
+  ## Sets the priority of the interrupt associated with an actr
+  setNvicPriority(irqNmbr, prio) # implicitly converts ActrPriority

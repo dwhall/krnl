@@ -4,7 +4,7 @@
 ##
 
 import armv7m/[core, sig]
-import event, priority, signal
+import event, signal
 import plat, proj
 
 type
@@ -14,8 +14,11 @@ type
   ## Changing the event handler is how to implement a state machine.
   ## The irqNmbr is a unique value used to index into
   ## the interrupt handler array in krnl's VectorTable.
+  ## An actr priority must never be more urgent than a hardware interrupt
+  ## so that the actr's dispatchIsr always tail-chains after a hardware ISR
+  ## (which may post to the actr) rather than preempting it.
   Actr* = object of RootObj
-    eventHandler*: EventHandler
+    eventHandler: EventHandler
     eventQueue: seq[Event]
     # children: seq[Actr] # TODO: future work
     irqNmbr: IrqNmbr
@@ -35,30 +38,40 @@ type
     RetExit
     RetTransitioned
 
-proc initActr*(self: var Actr, evntQueLen: uint8, prio: ActrPriority) =
+  ActrPriority* = 0 .. (0xFF shr plat.nvicPriorityBits()) # 0 is the lowest priority
+
+proc initActr*(self: var Actr, evntQueLen: uint8, priority: ActrPriority) =
   ## Returns an Actr with an event queue allocated to the given length.
   ## The irqNmbr field is not initialized here;
   ## it is set when the Actr is registered with the kernel.
   self.eventQueue = newSeqOfCap[Event](evntQueLen)
-  self.priority = prio
+  self.priority = priority
 
 func setIrqNmbr*(self: var Actr, irqNmbr: IrqNmbr) =
   self.irqNmbr = irqNmbr
 
-template schedule(self: Actr) =
-  ## Schedules the actr for execution by pending its exception in the NVIC
-  # NOTE: The caller MUST be in a critical section in privileged mode
-  sig.SIG.STIR.INTID(self.irqNmbr.uint32)
+func priority*(self: Actr): ActrPriority =
+  self.priority
 
-func post*(self: var Actr, e: Event) =
+func post*(self: var Actr, e: sink Event) =
   ## Posts an event to the actr and schedules the actr for execution
   ## within a critical section
   # NOTE: The caller MUST be in privileged mode
   self.eventQueue.add(e)
-  self.schedule()
+  sig.SIG.STIR.INTID(self.irqNmbr.uint32)
 
 func popEvent*(self: var Actr): Event =
   ## Pops the next event from the actr's event queue
   # NOTE: The caller MUST be in a critical section in privileged mode
   result = self.eventQueue[0]
   self.eventQueue.delete(0)
+
+func eventHandler*(self: Actr): EventHandler =
+  self.eventHandler
+
+func setEventHandler*(self: var Actr, handler: EventHandler) =
+  ## The actr's eventHandler must be halfword aligned (bit 0 clear)
+  ## on exception return (when we set the frame.pc in dispatchIsrBody).
+  ## So .eventHandler is made private and this setter forces the alignment.
+  let alignedHandlerAddr = cast[uint32](handler) and not 1'u32
+  self.eventHandler = cast[EventHandler](alignedHandlerAddr)

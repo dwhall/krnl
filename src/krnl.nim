@@ -9,9 +9,6 @@ export Event
 import proj
 export EventValue
 
-import krnlpkg/priority
-export ActrPriority
-
 import krnlpkg/signal
 export Sig, Signal
 
