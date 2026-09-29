@@ -108,11 +108,11 @@ proc enableIrq(irqNmbr: IrqNmbr) =
   let (regIdx, bitIdx) = divmod(irqNmbr.uint32, 32)
   case regIdx
   of 0:
-    NVIC.NVIC_ICPR(0).read().CLRPEND(bitIdx, 1).write()
-    NVIC.NVIC_ISER(0).read().SETENA(bitIdx, 1).write()
+    NVIC.NVIC_ICPR(0).read().CLRPEND(bitIdx).write()
+    NVIC.NVIC_ISER(0).read().SETENA(bitIdx).write()
   of 1:
-    NVIC.NVIC_ICPR(1).read().CLRPEND(bitIdx, 1).write()
-    NVIC.NVIC_ISER(1).read().SETENA(bitIdx, 1).write()
+    NVIC.NVIC_ICPR(1).read().CLRPEND(bitIdx).write()
+    NVIC.NVIC_ISER(1).read().SETENA(bitIdx).write()
   else:
     assert irqNmbr < 64, "Fill in more cases"
 
