@@ -6,7 +6,7 @@
 {.used.} # we import this module, but don't call any of its procs directly.
 
 import armv7m/core
-import krnl, syscall_intf
+import krnl, syscall_intf, effects
 
 type StackedFrame = object
   r0, r1, r2, r3, r12, lr, pc, xpsr: uint32
@@ -38,7 +38,7 @@ proc SVC_HandlerBody(frame: ptr StackedFrame, svcArg: uint8) {.exportc, noconv.}
     presult = cast[ptr SyscallResult](frame.r1)
   presult[] = dispatchSyscall(pargs)
 
-proc SVC_Handler() {.exportc, noconv, asmNoStackFrame.} =
+proc SVC_Handler() {.exportc, noconv, asmNoStackFrame, tags: [PrivilegedModeEffect].} =
   asm """
     tst lr, #4          // EXC_RETURN bit 2: 0 = exn used MSP, 1 = used PSP
     ite eq              // Determine which stack pointer is active

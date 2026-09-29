@@ -6,7 +6,7 @@
 import std/[math, volatile]
 import armv7m/[core, nvic, scb]
 import plat, proj
-import actr, namespace, signal_registry, vectortable
+import actr, namespace, signal_registry, effects, vectortable
 
 type Krnl* = object
   vectorTable: RamVectorTable
@@ -41,18 +41,18 @@ let c_vectorTable {.importc: "c_vectorTable".}: VectorTable
 var k: ptr Krnl
 
 # Forward decls
-proc setNvicPriority(irqNmbr: IrqNmbr, nvicPrio: NvicPriority)
-proc setPriority(irqNmbr: IrqNmbr, prio: ActrPriority)
+proc setNvicPriority(irqNmbr: IrqNmbr, nvicPrio: NvicPriority) {.tags: [PrivilegedModeEffect].}
+proc setPriority(irqNmbr: IrqNmbr, prio: ActrPriority) {.tags: [PrivilegedModeEffect].}
 
 proc initKrnl*(self: ptr Krnl) =
   ## Saves a reference to the Krnl and COPIES the non-vol vector table to RAM
   k = self # this should be the ONLY place where k is set
   k.vectorTable = c_vectorTable
 
-proc switchToRamVectorTable*() =
+proc switchToRamVectorTable*() {.tags: [PrivilegedModeEffect].} =
   SCB.VTOR.write(cast[uint32](addr k.vectorTable))
 
-proc exitPrivilegedMode*() =
+proc exitPrivilegedMode*() {.tags: [PrivilegedModeEffect].} =
   CONTROL.nPRIV(1)
   ISB()
 
@@ -103,7 +103,7 @@ proc dispatchIsr[irqNmbr: static IrqNmbr]() {.noconv, asmNoStackFrame.} =
 const dispatchIsrTable =
   [dispatchIsr[0], dispatchIsr[1], dispatchIsr[2], dispatchIsr[3]]
 
-proc enableIrq(irqNmbr: IrqNmbr) =
+proc enableIrq(irqNmbr: IrqNmbr) {.tags: [PrivilegedModeEffect].} =
   ## Clears any pending interrupt and enables it
   let (regIdx, bitIdx) = divmod(irqNmbr.uint32, 32)
   case regIdx
@@ -147,7 +147,7 @@ proc registerActr*(actr: ptr Actr) =
   setPriority(irqNmbr, actr[].priority)
   enableIrq(irqNmbr)
 
-proc setNvicPriority(irqNmbr: IrqNmbr, nvicPrio: NvicPriority) =
+proc setNvicPriority(irqNmbr: IrqNmbr, nvicPrio: NvicPriority) {.tags: [PrivilegedModeEffect].} =
   ## Sets the NVIC priority of the given external interrupt.
   # NVIC_IPR is byte-accessible, one byte per interrupt, so a single
   # byte store needs no read-modify-write and no critical section.
