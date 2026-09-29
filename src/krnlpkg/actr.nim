@@ -40,12 +40,20 @@ type
 
   ActrPriority* = 0 .. (0xFF shr plat.nvicPriorityBits()) # 0 is the lowest priority
 
-proc initActr*(self: var Actr, evntQueLen: uint8, priority: ActrPriority) =
+proc initActr*(
+    self: var Actr, evntQueLen: uint8, priority: ActrPriority, handler: EventHandler
+) =
   ## Returns an Actr with an event queue allocated to the given length.
   ## The irqNmbr field is not initialized here;
   ## it is set when the Actr is registered with the kernel.
   self.eventQueue = newSeqOfCap[Event](evntQueLen)
   self.priority = priority
+  # The actr's eventHandler must be halfword aligned (bit 0 clear)
+  # on exception return (when we set the frame.pc in dispatchIsrBody).
+  # So .eventHandler is private and can only be set here where alignment is forced.
+  assert (cast[uint32](addr handler) and 1'u32) == 0'u32,
+    "Expect Thumb2 func pointer alignment"
+  self.eventHandler = handler
 
 func setIrqNmbr*(self: var Actr, irqNmbr: IrqNmbr) =
   self.irqNmbr = irqNmbr
@@ -53,25 +61,18 @@ func setIrqNmbr*(self: var Actr, irqNmbr: IrqNmbr) =
 func priority*(self: Actr): ActrPriority =
   self.priority
 
+func eventHandler*(self: Actr): EventHandler =
+  self.eventHandler
+
 func post*(self: var Actr, e: sink Event) =
   ## Posts an event to the actr and schedules the actr for execution
   ## within a critical section
-  # NOTE: The caller MUST be in privileged mode
+  ## NOTE: The caller MUST be in privileged mode
   self.eventQueue.add(e)
   sig.SIG.STIR.INTID(self.irqNmbr.uint32)
 
 func popEvent*(self: var Actr): Event =
   ## Pops the next event from the actr's event queue
-  # NOTE: The caller MUST be in a critical section in privileged mode
+  ## NOTE: The caller MUST be in a critical section in privileged mode
   result = self.eventQueue[0]
   self.eventQueue.delete(0)
-
-func eventHandler*(self: Actr): EventHandler =
-  self.eventHandler
-
-func setEventHandler*(self: var Actr, handler: EventHandler) =
-  ## The actr's eventHandler must be halfword aligned (bit 0 clear)
-  ## on exception return (when we set the frame.pc in dispatchIsrBody).
-  ## So .eventHandler is made private and this setter forces the alignment.
-  let alignedHandlerAddr = cast[uint32](handler) and not 1'u32
-  self.eventHandler = cast[EventHandler](alignedHandlerAddr)
