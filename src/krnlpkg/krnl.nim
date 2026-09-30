@@ -41,7 +41,10 @@ let c_vectorTable {.importc: "c_vectorTable".}: VectorTable
 var k: ptr Krnl
 
 # Forward decls
-proc setNvicPriority(irqNmbr: IrqNmbr, nvicPrio: NvicPriority) {.tags: [PrivilegedModeEffect].}
+proc setNvicPriority(
+  irqNmbr: IrqNmbr, nvicPrio: NvicPriority
+) {.tags: [PrivilegedModeEffect].}
+
 proc setPriority(irqNmbr: IrqNmbr, prio: ActrPriority) {.tags: [PrivilegedModeEffect].}
 
 proc initKrnl*(self: ptr Krnl) =
@@ -147,7 +150,9 @@ proc registerActr*(actr: ptr Actr) =
   setPriority(irqNmbr, actr[].priority)
   enableIrq(irqNmbr)
 
-proc setNvicPriority(irqNmbr: IrqNmbr, nvicPrio: NvicPriority) {.tags: [PrivilegedModeEffect].} =
+proc setNvicPriority(
+    irqNmbr: IrqNmbr, nvicPrio: NvicPriority
+) {.tags: [PrivilegedModeEffect].} =
   ## Sets the NVIC priority of the given external interrupt.
   # NVIC_IPR is byte-accessible, one byte per interrupt, so a single
   # byte store needs no read-modify-write and no critical section.

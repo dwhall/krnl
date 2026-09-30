@@ -5,7 +5,7 @@
 
 import armv7m/[core, sig]
 import event, signal
-import plat, proj
+import effects, plat, proj
 
 type
   ## An Actr is an active object with an event handler that processes events
@@ -64,7 +64,7 @@ func priority*(self: Actr): ActrPriority =
 func eventHandler*(self: Actr): EventHandler =
   self.eventHandler
 
-func postEvent*(self: var Actr, e: sink Event) =
+func postEvent*(self: var Actr, e: sink Event) {.tags: [PrivilegedModeEffect].} =
   ## Posts an event to the actr and schedules the actr for execution
   ## within a critical section
   ## NOTE: The caller MUST be in privileged mode
