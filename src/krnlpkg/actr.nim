@@ -16,7 +16,7 @@ type
   ## the interrupt handler array in krnl's VectorTable.
   ## An actr priority must never be more urgent than a hardware interrupt
   ## so that the actr's dispatchIsr always tail-chains after a hardware ISR
-  ## (which may post to the actr) rather than preempting it.
+  ## (which may postEvent to the actr) rather than preempting it.
   Actr* = object of RootObj
     eventHandler: EventHandler
     eventQueue: seq[Event]
@@ -64,7 +64,7 @@ func priority*(self: Actr): ActrPriority =
 func eventHandler*(self: Actr): EventHandler =
   self.eventHandler
 
-func post*(self: var Actr, e: sink Event) =
+func postEvent*(self: var Actr, e: sink Event) =
   ## Posts an event to the actr and schedules the actr for execution
   ## within a critical section
   ## NOTE: The caller MUST be in privileged mode
