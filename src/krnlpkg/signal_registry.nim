@@ -16,15 +16,15 @@
 ##
 
 import std/tables
-import bitflags, namespace, plat, signal
+import actr_set, namespace, plat, signal
 
 type
   SigPubToken* = uint32 # TODO: make distinct?
   SignalRegistry* = object
-    publishers: Table[SigPubToken, SigTuple]
-    subscribers: Table[Signal, Bitflags[plat.irqCnt()]]
+    publishers: Table[SigPubToken, SigSeries]
+    subscribers: Table[Signal, ActrSet]
 
-#proc contains*(self: SignalRegistry, sig: SigTuple): bool =
+#proc contains*(self: SignalRegistry, sig: SigSeries): bool =
 #  self.publishers.hasVal(sig)
 
 proc registerSignals*(
@@ -36,17 +36,15 @@ proc registerSignals*(
     sigTuple = (nsHash: nsHash, sig: maxSig)
   self.publishers[token] = sigTuple
 
-proc subscribe*(self: var SignalRegistry, sig: SigTuple, irqNmbr: IrqNmbr) =
+proc subscribe*(self: var SignalRegistry, sig: Signal, irqNmbr: IrqNmbr) =
   ## Subscribes to a signal.  The given interrupt number will be pended
   ## for activation when the signal is published.
-  # TODO: scan publishers for SigTuple with sig
-  #assert sig in self.publishers, "Signal not registered"
-  #self.subscribers[sig].incl(irqNmbr.uint16)
+  # TODO: scan publishers for SigSeries with sig? why?
+  self.subscribers[sig].incl(irqNmbr)
 
-proc unsubscribe*(self: var SignalRegistry, sig: SigTuple, irqNmbr: IrqNmbr) =
+proc unsubscribe*(self: var SignalRegistry, sig: Signal, irqNmbr: IrqNmbr) =
   ## Unsubscribes from a signal
-  # TODO: fixme
-  #self.subscribers[sig].excl(irqNmbr.uint16)
+  self.subscribers[sig].excl(irqNmbr)
 
 iterator pairs*(self: SignalRegistry, sig: Signal): tuple[key: uint16, val: uint32] =
   ## Yields all bitflags for the given signal as (wordIdx, bitflags.uint32)
