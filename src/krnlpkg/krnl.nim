@@ -192,7 +192,7 @@ proc unsubscribe*(actr: ptr Actr, sig: Signal) =
   assert actr != nil and actr in k.actrReg
   k.sigReg.unsubscribe(sig, actr[].irqNmbr)
 
-proc publish*(evnt: Event) =
+proc publishEvent*(evnt: Event) =
   ## Copies `evnt` to every actr subscribed to the event's signal and schedules
   ## them.  Callable from a kernel interrupt handler or privileged thread.
   # TBD: crit section?

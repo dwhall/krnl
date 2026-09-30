@@ -3,8 +3,8 @@
 ## KRNL: System call interface and SVC dispatcher
 ##
 
-import plat
-import actr, krnl, namespace, signal_registry
+import plat, proj
+import actr, event, krnl, namespace, signal, signal_registry
 import vectortable # for IrqHandler
 
 type
@@ -13,6 +13,8 @@ type
     SyscallRegisterActr
     SyscallRegisterSignals # SyscallEnableTimerEvent # How to catch the event (no name)?
     SyscallRegisterIrqHandler
+    SyscallSubscribe
+    SyscallPublishEvent
 
   SyscallArgs* = object
     case syscallId*: SyscallId
@@ -26,10 +28,16 @@ type
     of SyscallRegisterIrqHandler:
       irqNmbr*: IrqNmbr
       irqHandler*: IrqHandler
+    of SyscallSubscribe:
+      actrAddr1*: ptr Actr
+      sig*: Signal
+    of SyscallPublishEvent:
+      event*: Event
 
   SyscallResult* = object
     case syscallId*: SyscallId
-    of SyscallInvalid, SyscallRegisterActr, SyscallRegisterIrqHandler:
+    of SyscallInvalid, SyscallRegisterActr, SyscallRegisterIrqHandler, SyscallSubscribe,
+        SyscallPublishEvent:
       discard
     of SyscallRegisterSignals:
       token*: SigPubToken
@@ -71,4 +79,12 @@ proc syscallRegisterIrqHandler*(
   let args = SyscallArgs(
     syscallId: SyscallRegisterIrqHandler, irqNmbr: irqNmbr, irqHandler: irqHandler
   )
+  syscall(addr args)
+
+proc syscallSubscribe*(actr: ptr Actr, sig: Signal): SyscallResult =
+  let args = SyscallArgs(syscallId: SyscallSubscribe, actrAddr1: actr, sig: sig)
+  syscall(addr args)
+
+proc syscallPublishEvent*(event: Event): SyscallResult =
+  let args = SyscallArgs(syscallId: SyscallPublishEvent, event: event)
   syscall(addr args)

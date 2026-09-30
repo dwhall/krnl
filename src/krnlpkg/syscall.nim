@@ -23,6 +23,10 @@ proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallResult {.inline.} =
       result.token = registerSignals(pargs.nsHash, pargs.maxSig)
     of SyscallRegisterIrqHandler:
       registerIrqHandler(pargs.irqNmbr, pargs.irqHandler)
+    of SyscallSubscribe:
+      subscribe(pargs.actrAddr1, pargs.sig)
+    of SyscallPublishEvent:
+      publishEvent(pargs.event)
     else:
       discard
 
