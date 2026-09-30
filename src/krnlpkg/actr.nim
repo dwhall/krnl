@@ -21,7 +21,7 @@ type
     eventHandler: EventHandler
     eventQueue: seq[Event]
     # children: seq[Actr] # TODO: future work
-    irqNmbr: IrqNmbr
+    irqNmbr*: IrqNmbr
     priority: ActrPriority
 
   EventHandler* =
@@ -54,9 +54,6 @@ proc initActr*(
   assert (cast[uint32](addr handler) and 1'u32) == 0'u32,
     "Expect Thumb2 func pointer alignment"
   self.eventHandler = handler
-
-func setIrqNmbr*(self: var Actr, irqNmbr: IrqNmbr) =
-  self.irqNmbr = irqNmbr
 
 func priority*(self: Actr): ActrPriority =
   self.priority

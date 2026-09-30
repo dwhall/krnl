@@ -13,29 +13,33 @@ type
     SigShort = 0 # 23-bit signal identity, 8-bit enumerator
     SigLong = 1 # 21-bit signal identity, 10-bit enumerator
 
-  SigSeries* = tuple[nsHash: NamespaceHash32, sig: uint32]
+  SigSeries* = object
+    nsHash*: NamespaceHash32
+    maxSig*: uint32
+    kind*: SignalKind = SigShort
 
 func Sig*(
     dottedNames: static string,
-    sigEnum: static uint32,
+    sigOrd: static uint32,
     kind: static SignalKind = SigShort,
 ): Signal {.compileTime.} =
   ## Composes a signal from the dotted namespace (case insensitive) and signal enum.
   when kind == SigShort:
     const
       sigIdentMask = 0x7FFF_FF00'u32
-      sigEnumMask = 0xFF'u32
+      sigOrdMask = 0xFF'u32
   else:
     const
       sigIdentMask = 0x7FFF_FC00'u32
-      sigEnumMask = 0x3FF'u32
-  assert sigEnum <= sigEnumMask, "sigEnum exceeds bitfield limit"
+      sigOrdMask = 0x3FF'u32
+  assert sigOrd <= sigOrdMask, "sigOrd exceeds bitfield limit"
   assert dottedNames.count('.') == 2
   const
     nsHash = NS32(dottedNames)
     sigIdent =
-      (kind.uint32 shl 31) or (nsHash.uint32 and sigIdentMask) or
-      (sigEnum and sigEnumMask)
+      (kind.uint32 shl 31) or (nsHash.uint32 and sigIdentMask) or (
+        sigOrd and sigOrdMask
+      )
   Signal(sigIdent)
 
 # TODO: await clarification on (dottednames, sig) vs (nsHash, sig)

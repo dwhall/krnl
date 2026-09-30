@@ -21,6 +21,9 @@ proc incl*(self: var ActrSet, irqNmbr: IrqNmbr) =
   ## Adds the actr with `irqNmbr` to the set.
   self.incl(irqNmbr.int)
 
+proc contains*(self: ActrSet, irqNmbr: IrqNmbr): bool =
+  self.contains(irqNmbr)
+
 proc schedule*(actrset: ActrSet) {.tags: [PrivilegedModeEffect].} =
   ## Schedules multiple actrs to activate by pending their interrupts in the NVIC
   ## In an ActrSet, the bit index corresponds to the actr's irqNmbr.

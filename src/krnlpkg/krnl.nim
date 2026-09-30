@@ -6,7 +6,7 @@
 import std/[math, volatile]
 import armv7m/[core, nvic, scb]
 import plat, proj
-import actr, namespace, signal_registry, effects, vectortable
+import actr, actr_set, event, namespace, signal, signal_registry, effects, vectortable
 
 type Krnl* = object
   vectorTable: RamVectorTable
@@ -94,16 +94,16 @@ proc dispatchIsr[irqNmbr: static IrqNmbr]() {.noconv, asmNoStackFrame.} =
   """
 
 # TODO:
-# macro genDispatchIsrTable(): untyped =
-#   ## Static table mapping each IrqNmbr to its dispatchIsr[N] proc.
+# macro genDispatchIsrArray(): untyped =
+#   ## Static array mapping each IrqNmbr(N) to its dispatchIsr[N] proc.
 #   ## Builds `[dispatchIsr[0], dispatchIsr[1], ..., dispatchIsr[high(IrqNmbr)]]`,
-#   ## which instantiates dispatchIsr[N] for every valid IrqNmbr as a side effect.
+#   ## which instantiates dispatchIsr[N] for every valid IrqNmbr.
 #   result = newTree(nnkBracket)
 #   for n in low(IrqNmbr).int .. high(IrqNmbr).int:
 #     result.add newTree(nnkBracketExpr, ident"dispatchIsr", newLit(uint8 n))
 #
-# const dispatchIsrTable: array[IrqNmbr, proc()] = [
-const dispatchIsrTable =
+# const dispatchIsrArray: array[IrqNmbr, proc()] = [
+const dispatchIsrArray =
   [dispatchIsr[0], dispatchIsr[1], dispatchIsr[2], dispatchIsr[3]]
 
 proc enableIrq(irqNmbr: IrqNmbr) {.tags: [PrivilegedModeEffect].} =
@@ -143,9 +143,9 @@ proc registerActr*(actr: ptr Actr) =
     # TODO: ERROR: too many actors, not enough interrupt slots
     return
   let irqNmbr = IrqNmbr(findResult)
-  actr[].setIrqNmbr(irqNmbr)
+  actr[].irqNmbr = irqNmbr
   k.actrReg[irqNmbr] = actr
-  let dispatchIsr = dispatchIsrTable[irqNmbr.int]
+  let dispatchIsr = dispatchIsrArray[irqNmbr.int]
   k.vectorTable.setIrqHandler(irqNmbr, dispatchIsr)
   setPriority(irqNmbr, actr[].priority)
   enableIrq(irqNmbr)
@@ -181,3 +181,23 @@ proc setNvicPriority(
 proc setPriority(irqNmbr: IrqNmbr, prio: ActrPriority) =
   ## Sets the priority of the interrupt associated with an actr
   setNvicPriority(irqNmbr, prio) # implicitly converts ActrPriority
+
+proc subscribe*(actr: ptr Actr, sig: Signal) =
+  ## Subscribes an already-registered actr to a published signal.
+  assert actr != nil and actr in k.actrReg
+  k.sigReg.subscribe(sig, actr[].irqNmbr)
+
+proc unsubscribe*(actr: ptr Actr, sig: Signal) =
+  ## Unsubscribes an actr from a signal.
+  assert actr != nil and actr in k.actrReg
+  k.sigReg.unsubscribe(sig, actr[].irqNmbr)
+
+proc publish*(evnt: Event) =
+  ## Copies `evnt` to every actr subscribed to the event's signal and schedules
+  ## them.  Callable from a kernel interrupt handler or privileged thread.
+  # TBD: crit section?
+  let subscribers = k.sigReg.getSubscribersTo(evnt.sig)
+  for (n, actr) in k.actrReg.pairs:
+    if (actr != nil) and subscribers.contains(IrqNmbr(n)):
+      actr[].postEvent(evnt)
+  subscribers.schedule()

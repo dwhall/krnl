@@ -11,8 +11,9 @@
 ## to the number of interrupt slots in the vector table.
 ## We use a hash table to hold the subscription registry.
 ## The table is indexed by the signal.
-## The value is a bitflags of the interrupt slot numbers,
-## where the interrupt number uniquely identifies one actr.
+## The value is a bitflags of the interrupt numbers,
+## where the interrupt number uniquely identifies the actrs
+## subscribed to the signal.
 ##
 
 import std/tables
@@ -27,34 +28,22 @@ type
 #proc contains*(self: SignalRegistry, sig: SigSeries): bool =
 #  self.publishers.hasVal(sig)
 
-proc registerSignals*(
+func registerSignals*(
     self: var SignalRegistry, nsHash: NamespaceHash32, maxSig: uint32
 ) =
   ## Registers a range signals from 0 .. maxSig in the registry
-  let
-    token = SigPubToken(0) # TODO: generate a real token
-    sigTuple = (nsHash: nsHash, sig: maxSig)
-  self.publishers[token] = sigTuple
+  let token = SigPubToken(0) # TODO: generate a real token
+  self.publishers[token] = SigSeries(nsHash: nsHash, maxSig: maxSig)
 
-proc subscribe*(self: var SignalRegistry, sig: Signal, irqNmbr: IrqNmbr) =
+func subscribe*(self: var SignalRegistry, sig: Signal, irqNmbr: IrqNmbr) =
   ## Subscribes to a signal.  The given interrupt number will be pended
   ## for activation when the signal is published.
-  # TODO: scan publishers for SigSeries with sig? why?
   self.subscribers[sig].incl(irqNmbr)
 
-proc unsubscribe*(self: var SignalRegistry, sig: Signal, irqNmbr: IrqNmbr) =
-  ## Unsubscribes from a signal
+func unsubscribe*(self: var SignalRegistry, sig: Signal, irqNmbr: IrqNmbr) =
+  ## Unsubscribes from a signal.  Harmless if no subscription exists.
   self.subscribers[sig].excl(irqNmbr)
 
-iterator pairs*(self: SignalRegistry, sig: Signal): tuple[key: uint16, val: uint32] =
-  ## Yields all bitflags for the given signal as (wordIdx, bitflags.uint32)
-  # TODO: fixme
-  #[
-  if sig in self:
-    let bitflags = self[sig]
-    var idx = 0'u16
-    for bf in bitflags:
-      yield (idx, bf)
-      inc idx
-  ]#
-  yield (key: 0'u16, val: 0'u32) # placeholder
+func getSubscribersTo*(self: SignalRegistry, sig: Signal): ActrSet =
+  ## The set of subscriber interrupt numbers for `sig` (default/empty if none).
+  self.subscribers.getOrDefault(sig)
