@@ -32,7 +32,6 @@ const
   # (which may post() to it) rather than preempting it.
   # NVIC priority of device (non-actr) ISRs.
   deviceIrqPriority: NvicPriority = 0
-  xpsrThumbOnly = 0x01000000'u32 # xPSR.T set; IPSR, ICI/IT and flags cleared
 
 # The non-volatile Vector Table used at power-on-reset; from vector_table.c
 let c_vectorTable {.importc: "c_vectorTable".}: VectorTable
@@ -66,6 +65,7 @@ proc dispatchIsrBody(
   ## Dispatches the actr's next event from its queue to its eventHandler
   ## and prepare the stackframe so that when we exit this ISR,
   ## we execute the actr's eventHandler with the proper arguments
+  const xpsrThumbOnly = 0x01000000'u32 # xPSR.T set; IPSR, IT/ICI and flags cleared
   # The frame is only ours to rewrite if this exception returns to Thread mode
   # (EXC_RETURN 0xFFFFFFF9 or 0xFFFFFFE9). Otherwise it belongs to a preempted
   # ISR, which means actr/device IRQ priorities are misconfigured.

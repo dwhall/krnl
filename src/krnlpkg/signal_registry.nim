@@ -42,8 +42,8 @@ func subscribe*(self: var SignalRegistry, sig: Signal, irqNmbr: IrqNmbr) =
 
 func unsubscribe*(self: var SignalRegistry, sig: Signal, irqNmbr: IrqNmbr) =
   ## Unsubscribes from a signal.  Harmless if no subscription exists.
-  self.subscribers.withValue(sig, subs):
-    subs[].excl(irqNmbr)
+  self.subscribers.withValue(sig, actrSet):
+    actrSet[].excl(irqNmbr)
 
 func getSubscribersTo*(self: SignalRegistry, sig: Signal): ActrSet =
   ## The set of subscriber interrupt numbers for `sig` (default/empty if none).
