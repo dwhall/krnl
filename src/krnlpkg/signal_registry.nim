@@ -38,11 +38,12 @@ func registerSignals*(
 func subscribe*(self: var SignalRegistry, sig: Signal, irqNmbr: IrqNmbr) =
   ## Subscribes to a signal.  The given interrupt number will be pended
   ## for activation when the signal is published.
-  self.subscribers[sig].incl(irqNmbr)
+  self.subscribers.mgetOrPut(sig, default(ActrSet)).incl(irqNmbr)
 
 func unsubscribe*(self: var SignalRegistry, sig: Signal, irqNmbr: IrqNmbr) =
   ## Unsubscribes from a signal.  Harmless if no subscription exists.
-  self.subscribers[sig].excl(irqNmbr)
+  self.subscribers.withValue(sig, subs):
+    subs[].excl(irqNmbr)
 
 func getSubscribersTo*(self: SignalRegistry, sig: Signal): ActrSet =
   ## The set of subscriber interrupt numbers for `sig` (default/empty if none).

@@ -15,14 +15,14 @@ type ActrSet* = Bitflags[plat.irqCnt()]
 
 proc excl*(self: var ActrSet, irqNmbr: IrqNmbr) =
   ## Removes the actr with `irqNmbr` from the set.
-  self.excl(irqNmbr.int)
+  bitflags.excl(self, irqNmbr.int)
 
 proc incl*(self: var ActrSet, irqNmbr: IrqNmbr) =
   ## Adds the actr with `irqNmbr` to the set.
-  self.incl(irqNmbr.int)
+  bitflags.incl(self, irqNmbr.int)
 
 proc contains*(self: ActrSet, irqNmbr: IrqNmbr): bool =
-  self.contains(irqNmbr)
+  bitflags.contains(self, irqNmbr.int)
 
 proc schedule*(actrset: ActrSet) {.tags: [PrivilegedModeEffect].} =
   ## Schedules multiple actrs to activate by pending their interrupts in the NVIC

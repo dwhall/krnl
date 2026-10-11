@@ -42,6 +42,21 @@ func Sig*(
       )
   Signal(sigIdent)
 
+func Sig*(
+    dottedNames: static string, sigOrd: uint32, kind: SignalKind = SigShort
+): Signal =
+  ## Composes a signal from the dotted namespace (case insensitive) and signal enum.
+  # NOTE: sigOrd is not static
+  let
+    sigIdentMask = if kind == SigShort: 0x7FFF_FF00'u32 else: 0x7FFF_FC00'u32
+    sigOrdMask = if kind == SigShort: 0xFF'u32 else: 0x3FF'u32
+  assert sigOrd <= sigOrdMask, "sigOrd exceeds bitfield limit"
+  assert dottedNames.count('.') == 2
+  const nsHash = NS32(dottedNames)
+  let sigIdent =
+    (kind.uint32 shl 31) or (nsHash.uint32 and sigIdentMask) or (sigOrd and sigOrdMask)
+  Signal(sigIdent)
+
 # TODO: await clarification on (dottednames, sig) vs (nsHash, sig)
 # converter toSignal*(sigTuple: SigSeries): Signal =
 #   ## Converts a SigSeries to a Signal

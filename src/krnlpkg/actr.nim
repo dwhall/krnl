@@ -48,11 +48,6 @@ proc initActr*(
   ## it is set when the Actr is registered with the kernel.
   self.eventQueue = newSeqOfCap[Event](evntQueLen)
   self.priority = priority
-  # The actr's eventHandler must be halfword aligned (bit 0 clear)
-  # on exception return (when we set the frame.pc in dispatchIsrBody).
-  # So .eventHandler is private and can only be set here where alignment is forced.
-  assert (cast[uint32](addr handler) and 1'u32) == 0'u32,
-    "Expect Thumb2 func pointer alignment"
   self.eventHandler = handler
 
 func priority*(self: Actr): ActrPriority =

@@ -4,7 +4,7 @@
 ##
 
 import plat, proj
-import actr, event, krnl, namespace, signal, signal_registry
+import actr, event, namespace, signal, signal_registry
 import vectortable # for IrqHandler
 
 type
