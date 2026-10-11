@@ -11,15 +11,14 @@
 ##
 
 import std/heapqueue
-import krnlpkg/[effects, event, signal]
+import krnlpkg/[effects, event, krnl, signal]
 
-const nsSysTimer* = "tbd.krnl.systimer"
+const nsSysTimer = "tbd.krnl.systimer"
 
 type
   SysTimer* = object
     timers: HeapQueue[TimerInstance]
     platTimer: PlatTimerIntf
-    publishEvent: PublishEventProc
 
   TimerInstance = object
     nextCallTicks: uint32
@@ -32,12 +31,6 @@ type
   PrivilegedModeCallback* =
     proc(nowTicks: uint32): uint32 {.nimcall, tags: [PrivilegedModeEffect].}
 
-  ## The kernel's publishEvent, injected at init so this module need not import
-  ## krnl (which would be circular).  It is called directly from the timer ISR,
-  ## which already runs privileged, so no syscall is needed (or allowed).
-  # TODO: Nim 2.4.0 may have {.cyclic.} pragma to tolerate import krnl
-  PublishEventProc* = proc(evnt: Event) {.nimcall, tags: [PrivilegedModeEffect].}
-
   PlatTimerIntf* = object
     toTicks*: proc(millisecs: uint32, prescaler: uint32): uint32
     stopTimer*: proc()
@@ -45,9 +38,7 @@ type
       proc(firstCallTicks: uint32, callback: PrivilegedModeCallback, prescaler: uint32)
     getTicks*: proc(): uint32
 
-  TimerDeclaration* = object
-    intervalMs: uint32
-    sigOrd: uint32
+  TimerDeclarationList* = openArray[tuple[intervalMs: uint32, sigOrd: uint32]]
 
 var sysTimer: ptr SysTimer
 
@@ -68,7 +59,7 @@ proc timerCallback(nowTicks: uint32): uint32 {.nimcall, tags: [PrivilegedModeEff
   while sysTimer[].timers.len > 0 and sysTimer[].timers[0].nextCallTicks <= nowTicks:
     var expiredTimer = sysTimer[].timers.pop()
     let evnt = Event(sig: expiredTimer.sig, val: nowTicks)
-    sysTimer[].publishEvent(evnt)
+    publishEvent(evnt)
     if expiredTimer.periodic:
       inc expiredTimer.nextCallTicks, expiredTimer.intervalTicks
       sysTimer[].timers.push(expiredTimer)
@@ -79,20 +70,19 @@ proc timerCallback(nowTicks: uint32): uint32 {.nimcall, tags: [PrivilegedModeEff
 
 proc mainSysTimer*(
     pSysTimer: ptr SysTimer,
-    plat: PlatTimerIntf,
-    publishEvent: PublishEventProc,
-    timerDeclarations: openArray[tuple[intervalMs: uint32, sigOrd: uint32]],
+    platTimer: sink PlatTimerIntf,
+    timerDeclarationList: sink TimerDeclarationList,
     prescaler: uint32 = 0,
 ) =
   ## Initializes the system timer with the given platform timer interface.
-  ## This must be called before any timers are created or used.
+  ## This MUST be called after switchToRamVectorTable().
+  ## This MUST be called before any timers are created or used.
   sysTimer = pSysTimer
-  sysTimer[].platTimer = plat
-  sysTimer[].publishEvent = publishEvent
-  let now = plat.getTicks()
-  for i, decl in timerDeclarations.pairs:
+  sysTimer[].platTimer = platTimer
+  let now = platTimer.getTicks()
+  for i, decl in timerDeclarationList.pairs:
     let
-      intervalTicks = plat.toTicks(decl.intervalMs, prescaler)
+      intervalTicks = platTimer.toTicks(decl.intervalMs, prescaler)
       firstCallTicks = now + intervalTicks
       sig = Sig(nsSysTimer, decl.sigOrd)
       timer = TimerInstance(

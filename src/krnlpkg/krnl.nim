@@ -6,15 +6,12 @@
 import std/[math, volatile]
 import armv7m/[core, nvic, scb]
 import plat, proj
-import
-  actr, actr_set, effects, event, namespace, signal, signal_registry, systimer,
-  vectortable
+import actr, actr_set, effects, event, namespace, signal, signal_registry, vectortable
 
 type Krnl* = object
   vectorTable: RamVectorTable
   sigReg: SignalRegistry
   actrReg: array[IrqNmbr, ptr Actr]
-  sysTimer: SysTimer
 
 # TODO: armabi module?
 type StackedFrame = object
@@ -50,20 +47,11 @@ proc setNvicPriority(
 
 proc setPriority(irqNmbr: IrqNmbr, prio: ActrPriority) {.tags: [PrivilegedModeEffect].}
 
-proc publishEvent*(evnt: Event) {.nimcall, tags: [PrivilegedModeEffect].}
-
 proc initKrnl*(self: ptr Krnl) =
   ## Saves a reference to the Krnl and COPIES the non-vol vector table to RAM
   ## This is called before switchToRamVectorTable()
   k = self # this should be the ONLY place where k is set
   k.vectorTable = c_vectorTable
-
-proc mainKrnl*(platTimer: sink PlatTimerIntf) =
-  ## Saves a reference to the Krnl and COPIES the non-vol vector table to RAM
-  ## This MUST be called after switchToRamVectorTable()
-  mainSysTimer(
-    addr k.sysTimer, platTimer, publishEvent, projTimerDeclarations, projTimerPrescaler
-  )
 
 proc switchToRamVectorTable*() {.tags: [PrivilegedModeEffect].} =
   SCB.VTOR.write(cast[uint32](addr k.vectorTable))
