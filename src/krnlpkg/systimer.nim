@@ -11,32 +11,35 @@
 ##
 
 import std/heapqueue
+import proj
 import krnlpkg/[effects, event, krnl, signal]
 
 const nsSysTimer = "tbd.krnl.systimer"
 
 type
+  SysTick* = uint64
+
   SysTimer* = object
     timers: HeapQueue[TimerInstance]
     platTimer: PlatTimerIntf
 
   TimerInstance = object
-    nextCallTicks: uint32
-    intervalTicks: uint32
+    nextCallTicks: SysTick
+    intervalTicks: SysTick
     sig: Signal
     periodic: bool
 
   ## The platform timer handler passes the current tick count to the callback,
   ## and the callback returns the absolute tick count for the next callback.
   PrivilegedModeCallback* =
-    proc(nowTicks: uint32): uint32 {.tags: [PrivilegedModeEffect].}
+    proc(nowTicks: SysTick): SysTick {.tags: [PrivilegedModeEffect].}
 
   PlatTimerIntf* = object
-    toTicks*: proc(millisecs: uint32, prescaler: uint32): uint32
+    toTicks*: proc(millisecs: uint32, prescaler: uint32): SysTick
     stopTimer*: proc()
     startTimer*:
-      proc(firstCallTicks: uint32, callback: PrivilegedModeCallback, prescaler: uint32)
-    getTicks*: proc(): uint32
+      proc(firstCallTicks: SysTick, callback: PrivilegedModeCallback, prescaler: uint32)
+    getTicks*: proc(): SysTick
 
   TimerDeclarationList* = openArray[tuple[intervalMs: uint32, sigOrd: uint32]]
 
@@ -59,7 +62,7 @@ proc mainSysTimer*(
   ## This MUST be called before any timers are created or used.
   var sysTimer: ptr SysTimer = pSysTimer # also used by timerCallback closure
 
-  proc timerCallback(nowTicks: uint32): uint32 {.tags: [PrivilegedModeEffect].} =
+  proc timerCallback(nowTicks: SysTick): SysTick {.tags: [PrivilegedModeEffect].} =
     ## This is the callback that is called by the platform timer when a timer expires.
     ## It publishes the signal of the expired timer and returns the next absolute tick count for the next timer to expire.
     # For each timer that has expired, publish its signal.
@@ -67,7 +70,8 @@ proc mainSysTimer*(
     # TODO: support margins for timer expiration (~5ms worth of ticks?)
     while sysTimer[].timers.len > 0 and sysTimer[].timers[0].nextCallTicks <= nowTicks:
       var expiredTimer = sysTimer[].timers.pop()
-      let evnt = Event(sig: expiredTimer.sig, val: nowTicks)
+      # The event value carries the low 32 bits of the tick count
+      let evnt = Event(sig: expiredTimer.sig, val: EventValue(nowTicks and 0xFFFF_FFFF'u64))
       publishEvent(evnt)
       if expiredTimer.periodic:
         inc expiredTimer.nextCallTicks, expiredTimer.intervalTicks
@@ -75,7 +79,7 @@ proc mainSysTimer*(
     if sysTimer[].timers.len > 0:
       result = sysTimer[].timers[0].nextCallTicks
     else:
-      result = 0'u32
+      result = 0.SysTick
 
   sysTimer[].platTimer = platTimer
   let now = platTimer.getTicks()
