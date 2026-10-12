@@ -1,7 +1,8 @@
 ## Copyright 2026 Dean Hall See LICENSE for details
 ##
 
-import proj, signal
+import proj
+import ./signal
 
 type
   ## Events are the fundamental and primary communication between Actrs.

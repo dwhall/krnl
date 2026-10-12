@@ -3,9 +3,8 @@
 ## KRNL: System call interface and SVC dispatcher
 ##
 
-import plat, proj
-import actr, event, namespace, signal, signal_registry
-import vectortable # for IrqHandler
+import plat, proj, vectortable # vectortable for IrqHandler
+import ./[actr, event, namespace, signal, signal_registry]
 
 type
   SyscallId* = enum

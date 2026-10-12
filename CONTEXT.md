@@ -51,6 +51,18 @@ Source: https://github.com/dwhall/krnl
 - Formatted with [nph](https://github.com/arnetheduck/nph)
 - Formatting may be disabled locally (`#!fmt: off`) when it improves clarity, aligns repeated code, or increases compactness
 
+## Source Layout & Imports
+- `src/krnl_intf/`: the only krnl modules application modules may import.
+  Each re-exports an explicit, minimal list of symbols from `krnl_impl/`.
+- `src/krnl_impl/`: the kernel implementation; for krnl, `plat/` and project-support modules only.
+- `src/plat/`: generic ARMv7-M platform support; `src/plat/<platform>/` holds one MCU's modules
+  (`*_<platform>.nim`).  The project's build adds both folders to the search path.
+- Contract modules are imported by bare name and resolved via the search path,
+  so the tests can substitute stubs (`tests/stubs/`):
+  `plat`, `vectortable` (krnl's `plat/`), `plat_<platform>` and `proj` (provided by the project).
+- Siblings are imported relatively: `import ./[actr, event]`; other krnl folders by relative path.
+- Import order: `std/`, third-party (`armv7m/`, `nrf52840/`, ...), contract modules, krnl modules.
+
 ## Testing Guidelines
 - Test framework: [unittest2](https://github.com/status-im/nim-unittest2)
 - Tests live in the `tests/` directory.

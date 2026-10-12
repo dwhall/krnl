@@ -9,7 +9,8 @@
 ##
 
 import armv7m/nvic
-import bitflags, effects, plat
+import plat
+import ./[bitflags, effects]
 
 type ActrSet* = Bitflags[plat.irqCnt()]
 

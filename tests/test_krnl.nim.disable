@@ -9,4 +9,4 @@ test "the Krnl type SHOULD exist":
   check true
   #check compiles:
   var k: Krnl
-  k.init
+  k.initKrnl

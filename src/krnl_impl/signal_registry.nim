@@ -17,7 +17,8 @@
 ##
 
 import std/tables
-import actr_set, namespace, plat, signal
+import plat
+import ./[actr_set, namespace, signal]
 
 type
   SigPubToken* = uint32 # TODO: make distinct?
