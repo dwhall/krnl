@@ -50,5 +50,7 @@ proc SVC_Handler() {.exportc, noconv, asmNoStackFrame, tags: [PrivilegedModeEffe
     mrsne r0, psp       // Stack pointer is in R0
     ldr   r1, [r0, #24] // stacked PC is in R1
     ldrb  r1, [r1, #-2] // SVC arg is in R1
+    cmp   r1, #1        // SVC #1: an actr's eventHandler returned
+    beq   `dispatchReturnSvc`
     b SVC_HandlerBody   // tail-call with r0 = ptr to StackedFrame
   """

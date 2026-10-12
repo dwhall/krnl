@@ -38,7 +38,9 @@ type
     RetExit
     RetTransitioned
 
-  ActrPriority* = 0 .. (0xFF shr plat.nvicPriorityBits()) # 0 is the lowest priority
+  ## 0 is the lowest priority.  The NVIC has 2^nvicPriorityBits levels;
+  ## the most urgent level is reserved for device ISRs, leaving the rest for actrs.
+  ActrPriority* = 0 .. ((1 shl plat.nvicPriorityBits()) - 2)
 
 proc initActr*(
     self: var Actr, evntQueLen: uint8, priority: ActrPriority, handler: EventHandler

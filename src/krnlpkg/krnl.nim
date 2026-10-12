@@ -20,11 +20,15 @@ type StackedFrame = object
 type NvicPriority = uint8 # 0 is the highest priority
 converter toNvicPriority*(prio: ActrPriority): NvicPriority =
   ## Converts ActrPriority where 0 is the lowest priority
-  ## to NvicPriority where 0 is the highest priority
-  NvicPriority(
-    ((0xFF'u32 shr plat.nvicPriorityBits()) + 1'u32 - prio.uint32) shl
-      plat.nvicPriorityBits()
-  )
+  ## to NvicPriority where 0 is the highest priority.
+  ## The NVIC implements only the most significant nvicPriorityBits of each
+  ## priority byte, so the level is shifted up into those bits.
+  ## ActrPriority's range keeps every actr less urgent than NVIC level 0,
+  ## which is reserved for device ISRs (deviceIrqPriority).
+  const
+    unusedBits = 8 - plat.nvicPriorityBits()
+    lowestLevel = (1'u32 shl plat.nvicPriorityBits()) - 1'u32
+  NvicPriority((lowestLevel - prio.uint32) shl unusedBits)
 
 const
   # Actr interrupt priorities must never be more urgent than a dev
@@ -51,6 +55,9 @@ proc initKrnl*(self: ptr Krnl) =
   ## This is called before switchToRamVectorTable()
   k = self # this should be the ONLY place where k is set
   k.vectorTable = c_vectorTable
+  # A dispatchIsr that preempts another dispatchIsr enters Thread mode
+  # while that one is still active (see Actr dispatch)
+  SCB.CCR.read().NONBASETHRDENA(1).write()
 
 proc switchToRamVectorTable*() {.tags: [PrivilegedModeEffect].} =
   SCB.VTOR.write(cast[uint32](addr k.vectorTable))
@@ -59,39 +66,123 @@ proc exitPrivilegedMode*() {.tags: [PrivilegedModeEffect].} =
   CONTROL.nPRIV(1)
   ISB()
 
-proc dispatchIsrBody(
-    frame: ptr StackedFrame, irqNmbr: IrqNmbr, excReturn: uint32
-) {.noconv.} =
-  ## Dispatches the actr's next event from its queue to its eventHandler
-  ## and prepare the stackframe so that when we exit this ISR,
-  ## we execute the actr's eventHandler with the proper arguments
+## Actr dispatch
+##
+## Each dispatch pushes a fresh DispatchFrame below whatever the dispatchIsr
+## interrupted, so eventHandlers nest on the single stack by NVIC priority:
+##
+##   [interrupted context's exception frame]  <- SP on dispatchIsr entry
+##   DispatchFrame.excReturn
+##   DispatchFrame.savedBasepri                <- SP while the eventHandler runs
+##   DispatchFrame.frame (r0..xpsr)            <- SP at dispatchIsr's exception return
+##
+## dispatchIsr's exception return pops `frame`, entering the eventHandler in
+## Thread mode with BASEPRI masking actrs of equal or lower priority.
+## The eventHandler returns into dispatchReturn, whose SVC lands in
+## dispatchReturnSvc, which restores BASEPRI and resumes the interrupted context.
+## Pending actrs that BASEPRI was masking then tail-chain into their dispatchIsr.
+##
+## A dispatchIsr may preempt a less urgent actr's dispatchIsr (e.g. a device ISR
+## publishes to it while the other dispatchIsr runs).  It then enters its
+## eventHandler in Thread mode while that dispatchIsr is still active,
+## which requires CCR.NONBASETHRDENA (set in initKrnl).
+
+type DispatchFrame = object
+  frame: StackedFrame # popped by dispatchIsr's exception return
+  savedBasepri: uint32 # BASEPRI of the interrupted context
+  excReturn: uint32 # EXC_RETURN that resumes the interrupted context
+
+# dispatchIsr's and dispatchReturnSvc's asm depend on this layout
+static:
+  assert sizeof(DispatchFrame) == 40
+  assert offsetOf(DispatchFrame, savedBasepri) == 32
+  assert offsetOf(DispatchFrame, excReturn) == 36
+
+proc dispatchReturn() {.noconv, asmNoStackFrame, noreturn.} =
+  ## Every eventHandler returns here (Thread mode, possibly unprivileged)
+  ## with SP pointing at its DispatchFrame.savedBasepri.
+  ## SVC #1 is handled by dispatchReturnSvc.
+  asm "svc #1"
+
+proc dispatchReturnSvc*() {.noconv, asmNoStackFrame, tags: [PrivilegedModeEffect].} =
+  ## SVC_Handler branches here for SVC #1 with R0 = the SVC's stacked frame
+  ## and LR = the SVC's EXC_RETURN.  Discards the SVC's frame, restores the
+  ## BASEPRI saved by dispatchIsrBody and resumes the context that the
+  ## dispatchIsr interrupted.  Assumes the single stack (MSP).
+  asm """
+    tst   lr, #0x10       // EXC_RETURN bit 4: 0 = the SVC's frame holds FP state
+    ite   eq
+    addeq r1, r0, #0x68   // r1 = address just past the SVC's frame
+    addne r1, r0, #0x20
+    ldr   r2, [r0, #28]   // stacked xPSR bit 9: frame was padded for alignment
+    tst   r2, #0x200
+    it    ne
+    addne r1, r1, #4      // r1 = ptr to DispatchFrame.savedBasepri
+  """
+  when plat.fpuAvail():
+    # The eventHandler used the FPU, so the SVC's entry left a lazy FP save
+    # pending into the frame we are discarding.  Clear FPCCR.LSPACT to abandon it,
+    # so returning to an FP frame restores the interrupted context's FP state.
+    asm """
+    tst   lr, #0x10
+    itttt eq
+    movweq r2, #0xEF34    // FPCCR = 0xE000EF34
+    movteq r2, #0xE000
+    ldreq r3, [r2]
+    biceq r3, r3, #1      // LSPACT
+    it    eq
+    streq r3, [r2]
+    """
+  asm """
+    ldr   r2, [r1, #0]    // DispatchFrame.savedBasepri
+    ldr   lr, [r1, #4]    // DispatchFrame.excReturn
+    add   r1, r1, #8      // r1 = interrupted context's exception frame
+    msr   msp, r1
+    msr   basepri, r2     // unmasks pending actrs, which tail-chain after bx
+    bx    lr
+  """
+
+proc dispatchIsrBody(ctx: ptr DispatchFrame, irqNmbr: IrqNmbr) {.noconv.} =
+  ## Pops the actr's next event from its queue and fills in ctx so that
+  ## dispatchIsr's exception return calls the actr's eventHandler
+  ## with the event and then returns into dispatchReturn.
   const xpsrThumbOnly = 0x01000000'u32 # xPSR.T set; IPSR, IT/ICI and flags cleared
-  # The frame is only ours to rewrite if this exception returns to Thread mode
-  # (EXC_RETURN 0xFFFFFFF9 or 0xFFFFFFE9). Otherwise it belongs to a preempted
-  # ISR, which means actr/device IRQ priorities are misconfigured.
-  assert (excReturn and 0xF'u32) == 0x9'u32, "dispatchIsr preempted another ISR"
+  # Actrs are less urgent than every other exception, so a dispatchIsr only
+  # interrupts Thread mode or another (less urgent) dispatchIsr, both on MSP.
+  assert (ctx.excReturn and 0x4'u32) == 0, "dispatchIsr interrupted a PSP context"
   assert k.actrReg[irqNmbr] != nil, "Actr not registered"
-  var actr = k.actrReg[irqNmbr]
+  let actr = k.actrReg[irqNmbr]
   let evnt = actr[].popEvent()
-  frame.r0 = cast[uint32](actr)
-  frame.r1 = evnt.sig
-  frame.r2 = evnt.val
-  frame.lr = cast[uint32](proj.lowPowerRunForever)
-  frame.pc = cast[uint32](actr[].eventHandler) and not 1'u32
-  # Don't carry the interrupted code's IT/ICI state into the eventHandler
-  frame.xpsr = xpsrThumbOnly
+  ctx.frame.r0 = cast[uint32](actr)
+  ctx.frame.r1 = evnt.sig
+  ctx.frame.r2 = evnt.val
+  ctx.frame.r3 = 0
+  ctx.frame.r12 = 0
+  ctx.frame.lr = cast[uint32](dispatchReturn)
+  ctx.frame.pc = cast[uint32](actr[].eventHandler) and not 1'u32
+  ctx.frame.xpsr = xpsrThumbOnly
+  # Run-to-completion: mask this actr and all less urgent actrs while
+  # its eventHandler runs; more urgent actrs may still preempt (nest).
+  ctx.savedBasepri = BASEPRI.read().uint32
+  BASEPRI.PRI(actr[].priority.toNvicPriority.uint32)
 
 proc dispatchIsr[irqNmbr: static IrqNmbr]() {.noconv, asmNoStackFrame.} =
   ## This isr MUST be placed directly in the vector table
-  ## so that SP points at the stacked exception frame on entry
-  ## before dispatchIsrBody() rewrites it.
+  ## so that SP points at the interrupted context's exception frame on entry.
+  ## It reserves a DispatchFrame below that frame, has dispatchIsrBody fill it,
+  ## then exception-returns through it into the actr's eventHandler.
+  asm """
+    sub   sp, sp, #40     // reserve a DispatchFrame (keeps 8-byte alignment)
+    str   lr, [sp, #36]   // DispatchFrame.excReturn
+    mov   r0, sp          // r0 = ptr to DispatchFrame
+  """
   # irqNmbr is a `static` (compile-time) value, so we must use .emit
   # to splice it in as an immediate ("n" constraint)
-  asm "mov r0, sp"
   {.emit: ["asm (\"mov r1, %0\"\n\t:\n\t: \"n\" (", irqNmbr, "));\n"].}
   asm """
-    mov r2, lr          // EXC_RETURN, left intact for the exception return
-    b `dispatchIsrBody` // tail call — its own epilogue triggers the exception return
+    bl    `dispatchIsrBody`
+    mvn   lr, #6          // EXC_RETURN 0xFFFFFFF9: Thread mode, MSP, basic frame
+    bx    lr              // pops DispatchFrame.frame into the eventHandler
   """
 
 # TODO:
