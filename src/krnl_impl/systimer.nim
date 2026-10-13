@@ -12,7 +12,8 @@
 
 import std/heapqueue
 import proj
-import ./[effects, event, krnl, signal]
+import krnl
+import ../krnl_intf/[effects, event, signal]
 
 const nsSysTimer = "tbd.krnl.systimer"
 

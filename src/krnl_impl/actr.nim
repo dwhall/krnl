@@ -5,7 +5,7 @@
 
 import armv7m/[core, sig]
 import plat, proj
-import ./[effects, event, signal]
+import ../krnl_intf/[effects, event, signal]
 
 type
   ## An Actr is an active object with an event handler that processes events

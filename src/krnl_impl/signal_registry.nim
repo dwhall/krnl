@@ -11,14 +11,14 @@
 ## to the number of interrupt slots in the vector table.
 ## We use a hash table to hold the subscription registry.
 ## The table is indexed by the signal.
-## The value is a bitflags of the interrupt numbers,
-## where the interrupt number uniquely identifies the actrs
-## subscribed to the signal.
+## The value is an ActrSet (bitflags) where the index of the bit
+## represents the interrupt number of the actr that is subscribed to the signal.
 ##
 
 import std/tables
 import plat
-import ./[actr_set, namespace, signal]
+import actr_set
+import ../krnl_intf/[actr_set, namespace, signal]
 
 type
   SigPubToken* = uint32 # TODO: make distinct?

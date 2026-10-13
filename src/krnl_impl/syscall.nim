@@ -6,7 +6,8 @@
 {.used.} # we import this module, but don't call any of its procs directly.
 
 import armv7m/core
-import ./[effects, krnl, syscall_intf]
+import krnl
+import ../krnl_intf/[effects, syscall]
 
 type StackedFrame = object
   r0, r1, r2, r3, r12, lr, pc, xpsr: uint32

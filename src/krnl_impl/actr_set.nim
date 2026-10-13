@@ -1,6 +1,6 @@
 ## Copyright 2026 Dean Hall See LICENSE for details
 ##
-## KRNL ActrSet type
+## KRNL ActrSet
 ##
 ## An ActrSet is a Bitflags where each bit corresponds to an actr's interrupt number.
 ## The quantity of interrupt numbers available depends on the platform/processor.
@@ -10,9 +10,7 @@
 
 import armv7m/nvic
 import plat
-import ./[bitflags, effects]
-
-type ActrSet* = Bitflags[plat.irqCnt()]
+import ../krnl_intf/[actr_set, bitflags, effects]
 
 proc excl*(self: var ActrSet, irqNmbr: IrqNmbr) =
   ## Removes the actr with `irqNmbr` from the set.

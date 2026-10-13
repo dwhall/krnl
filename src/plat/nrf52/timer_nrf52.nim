@@ -9,7 +9,8 @@
 
 import armv7m/nvic
 import nrf52840/rtc
-import ../../krnl_impl/[effects, syscall_intf, systimer]
+import ../../krnl_impl/systimer
+import ../../krnl_intf/[effects, syscall]
 
 const
   rtc1CounterBits = 24 # RTC COUNTER register width

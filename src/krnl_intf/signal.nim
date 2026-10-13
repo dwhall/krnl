@@ -3,7 +3,7 @@
 ## KRNL Signal
 
 import std/strutils
-import ./namespace
+import ../krnl_intf/namespace
 
 type
   ## A Signal is a value that discriminates an Event.

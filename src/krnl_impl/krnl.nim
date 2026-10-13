@@ -6,7 +6,8 @@
 import std/[math, volatile]
 import armv7m/[core, nvic, scb]
 import plat, proj, vectortable
-import ./[actr, actr_set, effects, event, namespace, signal, signal_registry]
+import actr, actr_set, signal_registry
+import ../krnl_intf/[effects, event, signal, namespace]
 
 type Krnl* = object
   vectorTable: RamVectorTable
