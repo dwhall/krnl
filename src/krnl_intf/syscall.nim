@@ -13,6 +13,7 @@ type
     SyscallRegisterSignals # SyscallEnableTimerEvent # How to catch the event (no name)?
     SyscallRegisterIrqHandler
     SyscallSubscribe
+    SyscallPostEvent
     SyscallPublishEvent
 
   SyscallArgs* = object
@@ -32,11 +33,14 @@ type
       sig*: Signal
     of SyscallPublishEvent:
       event*: Event
+    of SyscallPostEvent:
+      actrAddr2*: ptr Actr
+      event1*: Event
 
   SyscallResult* = object
     case syscallId*: SyscallId
     of SyscallInvalid, SyscallRegisterActr, SyscallRegisterIrqHandler, SyscallSubscribe,
-        SyscallPublishEvent:
+        SyscallPostEvent, SyscallPublishEvent:
       discard
     of SyscallRegisterSignals:
       token*: SigPubToken
@@ -64,24 +68,21 @@ proc syscallRegisterActr*(actrAddr: ptr Actr): SyscallResult =
   let args = SyscallArgs(syscallId: SyscallRegisterActr, actrAddr: actrAddr)
   syscall(addr args)
 
-proc syscallRegisterSignals*(
-    dottedNames: static string, maxSig: uint32
-): SyscallResult =
+proc syscallRegisterSignals*(dottedNames: static string, maxSig: uint32): SyscallResult =
   const nsHash = NS32(dottedNames)
-  let args =
-    SyscallArgs(syscallId: SyscallRegisterSignals, nsHash: nsHash, maxSig: maxSig)
+  let args = SyscallArgs(syscallId: SyscallRegisterSignals, nsHash: nsHash, maxSig: maxSig)
   syscall(addr args)
 
-proc syscallRegisterIrqHandler*(
-    irqNmbr: IrqNmbr, irqHandler: IrqHandler
-): SyscallResult =
-  let args = SyscallArgs(
-    syscallId: SyscallRegisterIrqHandler, irqNmbr: irqNmbr, irqHandler: irqHandler
-  )
+proc syscallRegisterIrqHandler*(irqNmbr: IrqNmbr, irqHandler: IrqHandler): SyscallResult =
+  let args = SyscallArgs(syscallId: SyscallRegisterIrqHandler, irqNmbr: irqNmbr, irqHandler: irqHandler)
   syscall(addr args)
 
 proc syscallSubscribe*(actr: ptr Actr, sig: Signal): SyscallResult =
   let args = SyscallArgs(syscallId: SyscallSubscribe, actrAddr1: actr, sig: sig)
+  syscall(addr args)
+
+proc syscallPostEvent*(actr: ptr Actr, event: Event): SyscallResult =
+  let args = SyscallArgs(syscallId: SyscallPostEvent, actrAddr2: actr, event1: event)
   syscall(addr args)
 
 proc syscallPublishEvent*(event: Event): SyscallResult =

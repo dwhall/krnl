@@ -28,6 +28,8 @@ proc dispatchSyscall(pargs: ptr SyscallArgs): SyscallResult {.inline.} =
       subscribe(pargs.actrAddr1, pargs.sig)
     of SyscallPublishEvent:
       publishEvent(pargs.event)
+    of SyscallPostEvent:
+      postEvent(pargs.actrAddr2, pargs.event1)
     else:
       discard
 

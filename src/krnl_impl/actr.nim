@@ -3,7 +3,7 @@
 ## KRNL Actr operations
 ##
 
-import armv7m/[core, sig]
+import armv7m/core
 import plat, proj
 import ../krnl_intf/[effects, event, signal]
 
@@ -58,15 +58,13 @@ func priority*(self: Actr): ActrPriority =
 func eventHandler*(self: Actr): EventHandler =
   self.eventHandler
 
-func postEvent*(self: var Actr, e: sink Event) {.tags: [PrivilegedModeEffect].} =
-  ## Posts an event to the actr and schedules the actr for execution
-  ## within a critical section
-  ## NOTE: The caller MUST be in privileged mode
-  self.eventQueue.add(e)
-  sig.SIG.STIR.INTID(self.irqNmbr.uint32)
-
 func popEvent*(self: var Actr): Event =
   ## Pops the next event from the actr's event queue
   ## NOTE: The caller MUST be in a critical section in privileged mode
   result = self.eventQueue[0]
   self.eventQueue.delete(0)
+
+func addEvent*(self: var Actr, e: sink Event) =
+  ## Adds an event to the actr's event queue
+  ## NOTE: The caller MUST be in a critical section in privileged mode
+  self.eventQueue.add(e)

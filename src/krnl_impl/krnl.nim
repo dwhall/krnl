@@ -4,7 +4,7 @@
 ##
 
 import std/[math, volatile]
-import armv7m/[core, nvic, scb]
+import armv7m/[core, nvic, scb, sig]
 import plat, proj, vectortable
 import actr, actr_set, signal_registry
 import ../krnl_intf/[effects, event, signal, namespace]
@@ -285,6 +285,13 @@ proc unsubscribe*(actr: ptr Actr, sig: Signal) =
   assert actr != nil and actr in k.actrReg
   k.sigReg.unsubscribe(sig, actr[].irqNmbr)
 
+func postEvent*(actr: ptr Actr, e: sink Event) {.tags: [PrivilegedModeEffect].} =
+  ## Posts an event to the actr and schedules the actr for execution
+  ## within a critical section
+  ## NOTE: The caller MUST be in privileged mode
+  actr[].addEvent(e)
+  sig.SIG.STIR.INTID(actr[].irqNmbr.uint32)
+
 proc publishEvent*(evnt: Event) =
   ## Copies `evnt` to every actr subscribed to the event's signal and schedules
   ## them.  Callable from a kernel interrupt handler or privileged thread.
@@ -292,5 +299,5 @@ proc publishEvent*(evnt: Event) =
   let subscribers = k.sigReg.getSubscribersTo(evnt.sig)
   for (n, actr) in k.actrReg.pairs:
     if (actr != nil) and subscribers.contains(IrqNmbr(n)):
-      actr[].postEvent(evnt)
+      postEvent(actr, evnt)
   subscribers.schedule()
