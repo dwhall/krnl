@@ -247,29 +247,18 @@ proc setNvicPriority(
     irqNmbr: IrqNmbr, nvicPrio: NvicPriority
 ) {.tags: [PrivilegedModeEffect].} =
   ## Sets the NVIC priority of the given external interrupt.
-  # NVIC_IPR is byte-accessible, one byte per interrupt, so a single
-  # byte store needs no read-modify-write and no critical section.
-
-  when true:
-    const nvicIprBase = 0xE000E400'u32
-    volatileStore(cast[ptr uint8](nvicIprBase + irqNmbr.uint32), nvicPrio)
+  let
+    (regIdx, fieldIdx) = divmod(irqNmbr.uint32, 4)
+    reg = NVIC.NVIC_IPR(regIdx)
+  #!fmt: off
+  case fieldIdx
+  of 0: reg.read().PRI_N0(nvicPrio).write()
+  of 1: reg.read().PRI_N1(nvicPrio).write()
+  of 2: reg.read().PRI_N2(nvicPrio).write()
+  of 3: reg.read().PRI_N3(nvicPrio).write()
   else:
-    # TODO: fix metagenerator.nim:106 (non-static index)
-    let
-      (regIdx, fieldIdx) = divmod(irqNmbr.uint32, 4)
-      reg = NVIC.NVIC_IPR(regIdx)
-
-    case fieldIdx
-    of 0:
-      reg.read().PRI_N0(nvicPrio).write()
-    of 1:
-      reg.read().PRI_N1(nvicPrio).write()
-    of 2:
-      reg.read().PRI_N2(nvicPrio).write()
-    of 3:
-      reg.read().PRI_N3(nvicPrio).write()
-    else:
-      discard
+    discard
+  #!fmt: on
 
 proc setPriority(irqNmbr: IrqNmbr, prio: ActrPriority) =
   ## Sets the priority of the interrupt associated with an actr
