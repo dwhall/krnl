@@ -42,7 +42,7 @@ type
   ## the most urgent level is reserved for device ISRs, leaving the rest for actrs.
   ActrPriority* = 0 .. ((1 shl plat.nvicPriorityBits()) - 2)
 
-proc initActr*(
+proc newActr*(
     self: var Actr, evntQueLen: uint8, priority: ActrPriority, handler: EventHandler
 ) =
   ## Returns an Actr with an event queue allocated to the given length.
