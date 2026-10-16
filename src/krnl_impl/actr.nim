@@ -42,12 +42,14 @@ type
   ## the most urgent level is reserved for device ISRs, leaving the rest for actrs.
   ActrPriority* = 0 .. ((1 shl plat.nvicPriorityBits()) - 2)
 
-proc newActr*(evntQueLen: uint8, priority: ActrPriority, handler: EventHandler): Actr =
+proc newActr*(
+    self: var Actr, evntQueLen: uint8, priority: ActrPriority, handler: EventHandler
+) =
   ## Returns an Actr with an event queue allocated to the given length.
   ## The irqNmbr field is set when the Actr is registered with the kernel.
-  result.eventQueue = newSeqOfCap[Event](evntQueLen)
-  result.priority = priority
-  result.eventHandler = handler
+  self.eventQueue = newSeqOfCap[Event](evntQueLen)
+  self.priority = priority
+  self.eventHandler = handler
 
 proc `=copy`(
   dst: var Actr, src: Actr
