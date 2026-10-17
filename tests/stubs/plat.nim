@@ -13,3 +13,5 @@ func nvicPriorityBits*(): int {.compileTime.} =
 
 func vtorAlignment*(): int {.compileTime.} =
   128
+
+type IrqNmbr* = range[0 .. irqCnt() - 1] # mirrors plat.nim
