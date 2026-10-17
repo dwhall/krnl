@@ -81,7 +81,7 @@ proc startTimer(
   RTC1.CC(0).COMPARE((firstCallTicks and rtc1CounterMask).uint32)
   RTC1.INTENSET.COMPARE0(1)
   RTC1.INTENSET.OVRFLW(1)
-  discard syscallRegisterIrqHandler(irq_RTC1, RTC1IrqHandler)
+  syscallRegisterIrqHandler(irq_RTC1, RTC1IrqHandler)
   RTC1.TASKS_START.TASKS_START(1)
   rtc1Callback = callback
   rtc1Prescaler = prescaler

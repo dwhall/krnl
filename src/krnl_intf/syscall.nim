@@ -63,28 +63,32 @@ proc syscall(syscallArgs: ptr SyscallArgs): SyscallResult {.inline.} =
   else:
     {.error: "syscall is only supported for ARM targets".}
 
-proc syscallRegisterActr*(actrAddr: ptr Actr): SyscallResult =
+proc syscallRegisterActr*(actrAddr: ptr Actr) =
   ## Issues a syscall to register an actor with the kernel
   let args = SyscallArgs(syscallId: SyscallRegisterActr, actrAddr: actrAddr)
-  syscall(addr args)
+  discard syscall(addr args)
 
-proc syscallRegisterSignals*(dottedNames: static string, maxSig: uint32): SyscallResult =
+proc syscallRegisterSignals*(dottedNames: static string, maxSig: uint32): SigPubToken =
   const nsHash = NS32(dottedNames)
-  let args = SyscallArgs(syscallId: SyscallRegisterSignals, nsHash: nsHash, maxSig: maxSig)
-  syscall(addr args)
+  let args =
+    SyscallArgs(syscallId: SyscallRegisterSignals, nsHash: nsHash, maxSig: maxSig)
+  let scResult = syscall(addr args)
+  scResult.token
 
-proc syscallRegisterIrqHandler*(irqNmbr: IrqNmbr, irqHandler: IrqHandler): SyscallResult =
-  let args = SyscallArgs(syscallId: SyscallRegisterIrqHandler, irqNmbr: irqNmbr, irqHandler: irqHandler)
-  syscall(addr args)
+proc syscallRegisterIrqHandler*(irqNmbr: IrqNmbr, irqHandler: IrqHandler) =
+  let args = SyscallArgs(
+    syscallId: SyscallRegisterIrqHandler, irqNmbr: irqNmbr, irqHandler: irqHandler
+  )
+  discard syscall(addr args)
 
-proc syscallSubscribe*(actr: ptr Actr, sig: Signal): SyscallResult =
+proc syscallSubscribe*(actr: ptr Actr, sig: Signal) =
   let args = SyscallArgs(syscallId: SyscallSubscribe, actrAddr1: actr, sig: sig)
-  syscall(addr args)
+  discard syscall(addr args)
 
-proc syscallPostEvent*(actr: ptr Actr, event: Event): SyscallResult =
+proc syscallPostEvent*(actr: ptr Actr, event: Event) =
   let args = SyscallArgs(syscallId: SyscallPostEvent, actrAddr2: actr, event1: event)
-  syscall(addr args)
+  discard syscall(addr args)
 
-proc syscallPublishEvent*(event: Event): SyscallResult =
+proc syscallPublishEvent*(event: Event) =
   let args = SyscallArgs(syscallId: SyscallPublishEvent, event: event)
-  syscall(addr args)
+  discard syscall(addr args)
