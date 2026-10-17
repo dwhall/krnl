@@ -18,9 +18,12 @@ test "NS32 SHOULD produce a hash value from a dottedString":
 test "An NS32 compare to an NS64 SHOULD NOT compile":
   check not compiles(NS32"one.two.three" == NS64"one.two.three")
 
+test "An NS32 compare to a uint32 SHOULD NOT compile":
+  check not compiles(NS32"one.two.three" == 894362440'u32)
+
 test "A NS32-produced hash value SHOULD compare for equality":
-  check NS32"world.hello.there" == 3822554152'u32
-  check 894362440 == NS32"one.two.three"
+  check NS32"world.hello.there" == NamespaceHash32(3822554152'u32)
+  check NamespaceHash32(894362440) == NS32"one.two.three"
 
 test "A NS64-produced hash value SHOULD compare for equality":
   check -8863172951485739992 == NS64"WORLD.Hello.there"

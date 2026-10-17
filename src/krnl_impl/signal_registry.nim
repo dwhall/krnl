@@ -15,16 +15,19 @@
 ## represents the interrupt number of the actr that is subscribed to the signal.
 ##
 
-import std/tables
+import std/[hashes, tables]
 import plat
 import actr_set
 import ../krnl_intf/[actr_set, namespace, signal]
 
 type
-  SigPubToken* = uint32 # TODO: make distinct?
+  SigPubToken* = distinct uint32
   SignalRegistry* = object
     publishers: Table[SigPubToken, SigSeries]
     subscribers: Table[Signal, ActrSet]
+
+proc `==`*(a, b: SigPubToken): bool {.borrow.}
+proc hash*(token: SigPubToken): Hash {.borrow.}
 
 #proc contains*(self: SignalRegistry, sig: SigSeries): bool =
 #  self.publishers.hasVal(sig)

@@ -22,3 +22,9 @@ test "string case SHOULD NOT affect the signal value":
 
 test "sig argument SHOULD affect the signal value":
   check Sig("one.two.three", 6) != Sig("one.two.three", 7)
+
+test "A Signal compare to a uint32 SHOULD NOT compile":
+  check not compiles(Sig("one.two.three", 6) == 6'u32)
+
+test "A Signal SHOULD NOT be assignable to a uint32":
+  check not compiles((let u: uint32 = Sig("one.two.three", 6)))

@@ -13,7 +13,10 @@ const domain {.strdefine.} = ""
 static:
   assert domain != "", "domain MUST be defined by the build."
 
-type NamespaceHash32* = uint32
+type NamespaceHash32* = distinct uint32
+
+proc `==`*(left, right: NamespaceHash32): bool {.borrow.}
+proc hash*(nsHash: NamespaceHash32): Hash {.borrow.}
 
 func NS64*(dottedNames: static string): Hash {.compileTime.} =
   ## A compile-time hash of a dotted namespace (case insensitive)
@@ -32,8 +35,3 @@ template NS32*(): NamespaceHash32 =
   # TODO: create way to get packageName
   const dottedNames = domain & ".package." & module
   NS32(dottedNames)
-
-# In case we want distinct NamespaceHash32
-# proc `==`*(left, right: NamespaceHash32): bool {.borrow.}
-# proc `==`*(left: NamespaceHash32, right: uint32): bool {.borrow.}
-# proc `==`*(left: uint32, right: NamespaceHash32): bool {.borrow.}

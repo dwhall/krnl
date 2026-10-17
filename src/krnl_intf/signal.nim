@@ -2,12 +2,12 @@
 ##
 ## KRNL Signal
 
-import std/strutils
+import std/[hashes, strutils]
 import ../krnl_intf/namespace
 
 type
   ## A Signal is a value that discriminates an Event.
-  Signal* = uint32
+  Signal* = distinct uint32
 
   SignalKind* = enum
     SigShort = 0 # 23-bit signal identity, 8-bit enumerator
@@ -17,6 +17,9 @@ type
     nsHash*: NamespaceHash32
     maxSig*: uint32
     kind*: SignalKind = SigShort
+
+proc `==`*(a, b: Signal): bool {.borrow.}
+proc hash*(sig: Signal): Hash {.borrow.}
 
 func Sig*(
     dottedNames: static string,
