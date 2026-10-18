@@ -12,15 +12,16 @@
 
 import std/math
 
+## Nb is the number of flags that shall be represented (1-bit per flag).
 type Bitflags*[Nb: static int] = object
-  flags: array[(Nb + 31) div 32, uint32]
-  card: uint16 # number of bits currently set
+  flags: array[(Nb + 31) div 32, uint32] # round up to the next 32-bit word
+  card: range[0 .. Nb] # number of bits currently set
 
-proc cap*[Nb: static int](self: Bitflags[Nb]): uint16 =
+proc cap*[Nb: static int](self: Bitflags[Nb]): int =
   ## Returns the capacity of the bitflags, which is the declared number of bits,
   Nb
 
-proc card*(self: Bitflags): uint16 =
+proc card*(self: Bitflags): int =
   ## Returns the number of bits currently set in the bitflags
   self.card
 
@@ -51,12 +52,14 @@ proc isEmpty*(self: Bitflags): bool =
   ## Returns true if no flags are set in the bitflags, false otherwise
   self.card == 0
 
-iterator items*(self: Bitflags): uint32 =
-  ## Yields word-sized sets of flags from least to greatest
-  for i in self.flags:
-    yield i
+proc words*[Nb: static int](
+    self: Bitflags[Nb], idx: range[0 .. ((Nb + 31) div 32 - 1)]
+): uint32 =
+  ## Returns the idx-th 32-bit wide group of flags
+  assert idx < self.flags.len
+  self.flags[idx]
 
-proc `[]`*(self: Bitflags, i: uint8): uint32 =
-  ## Returns the i-th 32-bit wide group of flags, where i is in the range [0, Nb div 32)
-  assert i < self.flags.len.uint
-  self.flags[i]
+iterator words*(self: Bitflags): uint32 =
+  ## Yields the 32-bit wide groups of flags from least to greatest
+  for word in self.flags:
+    yield word

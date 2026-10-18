@@ -29,13 +29,16 @@ proc schedule*(actrset: ActrSet) {.tags: [PrivilegedModeEffect].} =
   ## The ActrSet set usually comes from the the subscribers to a signal.
   ## NOTE: The caller MUST be in a critical section in privileged mode
   when plat.irqCnt() > 128:
-    for idx, bundle in actrset.pairs:
-      NVIC.NVIC_ISPR(idx).write(bundle)
+    var idx = 0
+    for word in actrset.words:
+      NVIC.NVIC_ISPR(idx).write(word)
+      inc idx
   else:
     when plat.irqCnt() > 0:
-      NVIC.NVIC_ISPR(0).write(actrset[0])
+      NVIC.NVIC_ISPR(0).write(actrset.words(0))
     when plat.irqCnt() > 32:
-      NVIC.NVIC_ISPR(1).write(actrset[1])
+      NVIC.NVIC_ISPR(1).write(actrset.words(1))
     when plat.irqCnt() > 64:
-      NVIC.NVIC_ISPR(2).write(actrset[2])
-      NVIC.NVIC_ISPR(3).write(actrset[3])
+      NVIC.NVIC_ISPR(2).write(actrset.words(2))
+    when plat.irqCnt() > 96:
+      NVIC.NVIC_ISPR(3).write(actrset.words(3))

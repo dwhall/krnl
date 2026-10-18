@@ -42,7 +42,7 @@ test "SHOULD be able to iterate over a series of ActrSet":
   r.subscribe(sig, 33.IrqNmbr)
   r.subscribe(sig, 47.IrqNmbr)
   var n = 0
-  for actrset in r.getSubscribersTo(sig).items():
+  for actrset in r.getSubscribersTo(sig).words():
     inc n
   check n > 0
 

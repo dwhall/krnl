@@ -73,28 +73,28 @@ test "SHOULD be able to check the cardinality of the bitflags":
 test "SHOULD be able to access the fields of the bitflags":
   var bf = Bitflags[128]()
   bf.incl 0
-  check bf[0] == 1
-  check bf[1] == 0
-  check bf[2] == 0
-  check bf[3] == 0
+  check bf.words(0) == 1
+  check bf.words(1) == 0
+  check bf.words(2) == 0
+  check bf.words(3) == 0
 
   bf.incl 32 + 1
-  check bf[0] == 1
-  check bf[1] == 2
-  check bf[2] == 0
-  check bf[3] == 0
+  check bf.words(0) == 1
+  check bf.words(1) == 2
+  check bf.words(2) == 0
+  check bf.words(3) == 0
 
   bf.incl 64 + 2
-  check bf[0] == 1
-  check bf[1] == 2
-  check bf[2] == 4
-  check bf[3] == 0
+  check bf.words(0) == 1
+  check bf.words(1) == 2
+  check bf.words(2) == 4
+  check bf.words(3) == 0
 
   bf.incl 96 + 3
-  check bf[0] == 1
-  check bf[1] == 2
-  check bf[2] == 4
-  check bf[3] == 8
+  check bf.words(0) == 1
+  check bf.words(1) == 2
+  check bf.words(2) == 4
+  check bf.words(3) == 8
 
 test "incl SHOULD NOT compile if the flag is out of bounds":
   var bf: Bitflags[60]
