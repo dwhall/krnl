@@ -9,6 +9,13 @@ import plat, proj
 import ../krnl_intf/[effects, event, signal]
 
 type
+  ## An EventHandler takes the concrete Actr subtype T it was written for.
+  ## Must be declared before Actr, whose field instantiates it,
+  ## or the compiler rejects every EventHandler[T] as an invalid type.
+  EventHandler[T: Actr] = proc(
+    self: var T, sig: Signal, val: EventValue
+  ): HandlerReturn {.nimcall, forbids: [PrivilegedModeEffect].}
+
   ## An Actr is an active object with an event handler that processes events
   ## serialized in FIFO fashion in its event queue.  An Actr can emit events,
   ## spawn child Actrs and change its event handler for the next event.
@@ -19,14 +26,11 @@ type
   ## so that the actr's dispatchIsr always tail-chains after a hardware ISR
   ## (which may postEvent to the actr) rather than preempting it.
   Actr* = object of RootObj
-    eventHandler: EventHandler
+    eventHandler: EventHandler[Actr]
     eventQueue: Deque[Event]
     # children: seq[Actr] # TODO: future work
     irqNmbr: IrqNmbr
     priority: ActrPriority
-
-  EventHandler* =
-    proc(self: var Actr, sig: Signal, val: EventValue): HandlerReturn {.nimcall.}
 
   ## Every EventHandler returns a HandlerReturn code to indicate
   ## how the event was processed.
@@ -43,14 +47,19 @@ type
   ## the most urgent level is reserved for device ISRs, leaving the rest for actrs.
   ActrPriority* = 0 .. ((1 shl plat.nvicPriorityBits()) - 2)
 
-proc initActr*(
-    self: var Actr, evntQueLen: int, priority: ActrPriority, handler: EventHandler
+proc initActr*[T: Actr](
+    self: var T,
+    evntQueLen: int,
+    priority: ActrPriority,
+    handler: EventHandler[T],
 ) =
   ## Returns an Actr with an event queue allocated to the given length.
   ## The irqNmbr field is set when the Actr is registered with the kernel.
+  ## Casting the handler to EventHandler[Actr] is safe because
+  ## a var T is passed as a pointer and T's Actr part is at offset 0.
   self.eventQueue = initDeque[Event](evntQueLen)
   self.priority = priority
-  self.eventHandler = handler
+  self.eventHandler = cast[EventHandler[Actr]](handler)
 
 proc `=copy`(
   dst: var Actr, src: Actr
@@ -59,7 +68,7 @@ proc `=copy`(
 func priority*(self: Actr): ActrPriority =
   self.priority
 
-func eventHandler*(self: Actr): EventHandler =
+func eventHandler*(self: Actr): EventHandler[Actr] =
   self.eventHandler
 
 func irqNmbr*(self: Actr): IrqNmbr =
