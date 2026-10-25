@@ -274,7 +274,7 @@ proc unsubscribe*(actr: ptr Actr, sig: Signal) =
   assert actr != nil and actr in k.actrReg
   k.sigReg.unsubscribe(sig, actr[].irqNmbr)
 
-func postEvent*(actr: ptr Actr, e: sink Event) {.tags: [PrivilegedModeEffect].} =
+proc postEvent*(actr: ptr Actr, e: sink Event) {.tags: [PrivilegedModeEffect].} =
   ## Posts an event to the actr and schedules the actr for execution
   ## within a critical section
   ## NOTE: The caller MUST be in privileged mode
