@@ -3,6 +3,7 @@
 ## KRNL Actr operations
 ##
 
+import std/deques
 import armv7m/core
 import plat, proj
 import ../krnl_intf/[effects, event, signal]
@@ -19,7 +20,7 @@ type
   ## (which may postEvent to the actr) rather than preempting it.
   Actr* = object of RootObj
     eventHandler: EventHandler
-    eventQueue: seq[Event]
+    eventQueue: Deque[Event]
     # children: seq[Actr] # TODO: future work
     irqNmbr: IrqNmbr
     priority: ActrPriority
@@ -42,12 +43,12 @@ type
   ## the most urgent level is reserved for device ISRs, leaving the rest for actrs.
   ActrPriority* = 0 .. ((1 shl plat.nvicPriorityBits()) - 2)
 
-proc newActr*(
-    self: var Actr, evntQueLen: uint8, priority: ActrPriority, handler: EventHandler
+proc initActr*(
+    self: var Actr, evntQueLen: int, priority: ActrPriority, handler: EventHandler
 ) =
   ## Returns an Actr with an event queue allocated to the given length.
   ## The irqNmbr field is set when the Actr is registered with the kernel.
-  self.eventQueue = newSeqOfCap[Event](evntQueLen)
+  self.eventQueue = initDeque[Event](evntQueLen)
   self.priority = priority
   self.eventHandler = handler
 
@@ -70,10 +71,11 @@ func `irqNmbr=`*(self: var Actr, nmbr: IrqNmbr) =
 func popEvent*(self: var Actr): Event =
   ## Pops the next event from the actr's event queue
   ## NOTE: The caller MUST be in a critical section in privileged mode
-  result = self.eventQueue[0]
-  self.eventQueue.delete(0)
+  if self.eventQueue.len == 0: ## TODO: apply unified error handling instead
+    return default(Event)
+  self.eventQueue.popLast()
 
 func addEvent*(self: var Actr, e: sink Event) =
   ## Adds an event to the actr's event queue
   ## NOTE: The caller MUST be in a critical section in privileged mode
-  self.eventQueue.add(e)
+  self.eventQueue.addFirst(e)

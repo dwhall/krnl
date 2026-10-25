@@ -6,4 +6,4 @@
 ##
 
 import ../krnl_impl/actr
-export Actr, ActrPriority, EventHandler, HandlerReturn, newActr
+export Actr, ActrPriority, EventHandler, HandlerReturn, initActr
