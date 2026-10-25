@@ -8,22 +8,20 @@
 ## Copyright 2024 Dean Hall See LICENSE for details
 ##
 
-type
-  RingQueIndexType = uint8
-  RingQue*[N: static RingQueIndexType, T] = object
-    buf: array[N, T]
-    count: range[0.RingQueIndexType .. N]
-    readIdx: range[0.RingQueIndexType .. N]
-    writeIdx: range[0.RingQueIndexType .. N]
+type RingQue*[N: static int, T] = object
+  buf: array[N, T]
+  count: range[0 .. N]
+  readIdx: range[0 .. N]
+  writeIdx: range[0 .. N]
 
 let qFullIndexDefect = newException(IndexDefect, "Queue is full")
 let qEmptyIndexDefect = newException(IndexDefect, "Queue is empty")
 
-proc newRingQue*(n: static RingQueIndexType, t: typedesc): auto =
+proc newRingQue*(n: static int, t: typedesc): auto =
   ## Creates a new RingQue of size n and type t
   RingQue[n, t]()
 
-func cap*[N, T](self: RingQue[N, T]): auto {.inline.} =
+func cap*[N, T](self: RingQue[N, T]): int {.inline.} =
   ## Returns the capacity of the queue
   N
 
@@ -39,7 +37,7 @@ proc add*[N, T](self: var RingQue[N, T], item: sink T) {.inline.} =
   dec self.writeIdx
   inc self.count
 
-proc pop*[N, T](self: var RingQue[N, T]): owned T {.inline.} =
+proc pop*[N, T](self: var RingQue[N, T]): T {.inline.} =
   ## Raises an IndexDefect if the queue is already empty.
   ## Removes and returns the item at the readIdx position of the queue,
   ## then moves the readIdx.
@@ -51,7 +49,7 @@ proc pop*[N, T](self: var RingQue[N, T]): owned T {.inline.} =
   dec self.readIdx
   dec self.count
 
-func len*[N, T](self: RingQue[N, T]): auto {.inline.} =
+func len*[N, T](self: RingQue[N, T]): int {.inline.} =
   ## Returns the current number of items in the queue
   self.count
 
