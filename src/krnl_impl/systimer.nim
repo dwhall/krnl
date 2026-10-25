@@ -61,38 +61,37 @@ proc `<`(a, b: TimerInstance): bool =
   a.nextCallTicks < b.nextCallTicks
 
 proc mainSysTimer*(
-    pSysTimer: ptr SysTimer,
+    sysTimer: ptr SysTimer,
     platTimer: sink PlatTimerIntf,
     timerDeclarationList: openArray[sysTimerDecl],
     prescaler: uint32 = 0,
 ) =
   ## Initializes the system timer with the given platform timer interface.
-  ## This MUST be called after switchToRamVectorTable().
+  ## switchToRamVectorTable() MUST be called before this.
   ## This MUST be called before any timers are created or used.
-  var sysTimerDecl: ptr SysTimer = pSysTimer # also used by timerCallback closure
 
   proc timerCallback(nowTicks: SysTick): SysTick {.tags: [PrivilegedModeEffect].} =
     ## This is the callback that is called by the platform timer when a timer expires.
-    ## It publishes the signal of the expired timer and returns the next absolute tick count for the next timer to expire.
+    ## It keeps a reference to the sysTimer,publishes the signal of the expired timer
+    ## and returns the next absolute tick count for the next timer to expire.
     # For each timer that has expired, publish its signal.
     # If the timer is periodic, reschedule it for its next expiration;
     # TODO: support margins for timer expiration (~5ms worth of ticks?)
-    while sysTimerDecl[].timers.len > 0 and
-        sysTimerDecl[].timers[0].nextCallTicks <= nowTicks:
-      var expiredTimer = sysTimerDecl[].timers.pop()
+    while sysTimer[].timers.len > 0 and sysTimer[].timers[0].nextCallTicks <= nowTicks:
+      var expiredTimer = sysTimer[].timers.pop()
       # The event value carries the low 32 bits of the tick count
       let evnt =
         Event(sig: expiredTimer.sig, val: EventValue(nowTicks and 0xFFFF_FFFF'u64))
       publishEvent(evnt)
       if expiredTimer.periodic:
         inc expiredTimer.nextCallTicks, expiredTimer.intervalTicks
-        sysTimerDecl[].timers.push(expiredTimer)
-    if sysTimerDecl[].timers.len > 0:
-      result = sysTimerDecl[].timers[0].nextCallTicks
+        sysTimer[].timers.push(expiredTimer)
+    if sysTimer[].timers.len > 0:
+      result = sysTimer[].timers[0].nextCallTicks
     else:
       result = 0.SysTick
 
-  sysTimerDecl[].platTimer = platTimer
+  sysTimer[].platTimer = platTimer
   let now = platTimer.getTicks()
   for i, decl in timerDeclarationList.pairs:
     let
@@ -104,7 +103,7 @@ proc mainSysTimer*(
         sig: decl.sig,
         periodic: true,
       )
-    sysTimerDecl[].timers.push(timer)
+    sysTimer[].timers.push(timer)
   # The heap's 0th element is the next timer to expire
-  let firstCallTicks = sysTimerDecl[].timers[0].nextCallTicks
-  sysTimerDecl[].platTimer.startTimer(firstCallTicks, timerCallback, prescaler)
+  let firstCallTicks = sysTimer[].timers[0].nextCallTicks
+  sysTimer[].platTimer.startTimer(firstCallTicks, timerCallback, prescaler)
