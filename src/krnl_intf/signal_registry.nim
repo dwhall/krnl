@@ -4,4 +4,4 @@
 ##
 
 import ../krnl_impl/signal_registry
-export SigPubToken, SignalRegistry
+export SigPubToken
