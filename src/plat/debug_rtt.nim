@@ -43,7 +43,7 @@ else:
   proc debugRTTwrite*(bufferIndex: cint, s: cstring, len: cint): cuint {.inline.} = discard
   proc debugRTTwriteStr*(bufferIndex: cint, s: cstring): cuint {.inline.} = discard
   proc debugRTTprintf*(bufferIndex: cint, format: cstring) {.inline, varargs.} = discard
-  proc debugPrint*(s: string, idx: cint = 0) = discard
-  proc debugPrint*(buf: openArray[char], idx: cint = 0) = discard
+  proc debugPrint*(s: string, idx = 0) = discard
+  proc debugPrint*(buf: openArray[char], idx = 0) = discard
 
 
