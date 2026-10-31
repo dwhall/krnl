@@ -167,37 +167,23 @@ proc dispatchIsrBody(ctx: ptr DispatchFrame, irqNmbr: IrqNmbr) {.noconv.} =
   ctx.savedBasepri = BASEPRI.read().uint32
   BASEPRI.PRI(actr[].priority.toNvicPriority.uint32)
 
-proc dispatchIsr[irqNmbr: static IrqNmbr]() {.noconv, asmNoStackFrame.} =
+proc dispatchIsr() {.noconv, asmNoStackFrame.} =
   ## This isr MUST be placed directly in the vector table
   ## so that SP points at the interrupted context's exception frame on entry.
   ## It reserves a DispatchFrame below that frame, has dispatchIsrBody fill it,
   ## then exception-returns through it into the actr's eventHandler.
+  ## Every actr's vector slot holds this same isr; it derives the actr's
+  ## IrqNmbr from IPSR (external interrupt N is exception number N + 16).
   asm """
     sub   sp, sp, #40     // reserve a DispatchFrame (keeps 8-byte alignment)
     str   lr, [sp, #36]   // DispatchFrame.excReturn
     mov   r0, sp          // r0 = ptr to DispatchFrame
-  """
-  # irqNmbr is a `static` (compile-time) value, so we must use .emit
-  # to splice it in as an immediate ("n" constraint)
-  {.emit: ["asm (\"mov r1, %0\"\n\t:\n\t: \"n\" (", irqNmbr, "));\n"].}
-  asm """
+    mrs   r1, ipsr        // r1 = active exception number
+    sub   r1, r1, #16     // r1 = IrqNmbr
     bl    `dispatchIsrBody`
     mvn   lr, #6          // EXC_RETURN 0xFFFFFFF9: Thread mode, MSP, basic frame
     bx    lr              // pops DispatchFrame.frame into the eventHandler
   """
-
-# TODO:
-# macro genDispatchIsrArray(): untyped =
-#   ## Static array mapping each IrqNmbr(N) to its dispatchIsr[N] proc.
-#   ## Builds `[dispatchIsr[0], dispatchIsr[1], ..., dispatchIsr[high(IrqNmbr)]]`,
-#   ## which instantiates dispatchIsr[N] for every valid IrqNmbr.
-#   result = newTree(nnkBracket)
-#   for n in low(IrqNmbr).int .. high(IrqNmbr).int:
-#     result.add newTree(nnkBracketExpr, ident"dispatchIsr", newLit(uint8 n))
-#
-# const dispatchIsrArray: array[IrqNmbr, proc()] = [
-const dispatchIsrArray =
-  [dispatchIsr[0], dispatchIsr[1], dispatchIsr[2], dispatchIsr[3]]
 
 proc enableIrq(irqNmbr: IrqNmbr) {.tags: [PrivilegedModeEffect].} =
   ## Clears any pending interrupt and enables it
@@ -238,7 +224,6 @@ proc registerActr*(actr: ptr Actr) =
   let irqNmbr = IrqNmbr(findResult)
   actr[].irqNmbr = irqNmbr
   k.actrReg[irqNmbr] = actr
-  let dispatchIsr = dispatchIsrArray[irqNmbr.int]
   k.vectorTable.setIrqHandler(irqNmbr, dispatchIsr)
   setPriority(irqNmbr, actr[].priority)
   enableIrq(irqNmbr)
