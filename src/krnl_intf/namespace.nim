@@ -21,6 +21,7 @@ proc hash*(nsHash: NamespaceHash32): Hash {.borrow.}
 func NS64*(dottedNames: static string): Hash {.compileTime.} =
   ## A compile-time hash of a dotted namespace (case insensitive)
   for name in dottedNames.split('.'):
+    # TODO: project-selectable whether hash observes or ignores case?
     result = result !& hashIgnoreCase(name)
 
 func NS32*(dottedNames: static string): NamespaceHash32 {.compileTime.} =
