@@ -18,7 +18,7 @@ type NamespaceHash32* = distinct uint32
 proc `==`*(left, right: NamespaceHash32): bool {.borrow.}
 proc hash*(nsHash: NamespaceHash32): Hash {.borrow.}
 
-func NS64*(dottedNames: static string): Hash {.compileTime.} =
+func NS64(dottedNames: static string): Hash {.compileTime.} =
   ## A compile-time hash of a dotted namespace (case insensitive)
   for name in dottedNames.split('.'):
     # TODO: project-selectable whether hash observes or ignores case?
@@ -27,11 +27,11 @@ func NS64*(dottedNames: static string): Hash {.compileTime.} =
 func NS32*(dottedNames: static string): NamespaceHash32 {.compileTime.} =
   ## A compile-time hash of a dotted namespace (case insensitive)
   ## This func is intended for use as a string-prefix operator:
-  ##    NS32"dom.pkg.mod"
+  ##    NS32"domain.package.module"
   NamespaceHash32(NS64(dottedNames).uint32)
 
 template NS32*(): NamespaceHash32 =
-  # Use the caller's filename, not this file's name
+  ## Uses the defined domain and the caller's filename for the module
   const module = instantiationInfo().filename.splitFile().name
   # TODO: create way to get packageName
   const dottedNames = domain & ".package." & module

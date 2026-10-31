@@ -15,7 +15,7 @@ import proj
 import krnl
 import ../krnl_intf/[effects, event, signal]
 
-const nsSysTimer = "tbd.krnl.systimer"
+const nsSysTimer = "dwh.krnl.systimer"
 
 type
   SysTick* = uint64
