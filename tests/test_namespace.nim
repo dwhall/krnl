@@ -5,7 +5,7 @@ import std/hashes
 import unittest2
 
 # module under test:
-import namespace
+include namespace
 
 test "NS32 and NS64 identifiers SHOULD exist":
   check declared NS32
