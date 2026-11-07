@@ -8,6 +8,7 @@
 ##
 
 import std/[hashes, os, strutils]
+import proj
 
 const domain {.strdefine.} = ""
 static:
@@ -21,8 +22,10 @@ proc hash*(nsHash: NamespaceHash32): Hash {.borrow.}
 func NS64(dottedNames: static string): Hash {.compileTime.} =
   ## A compile-time hash of a dotted namespace (case insensitive)
   for name in dottedNames.split('.'):
-    # TODO: project-selectable whether hash observes or ignores case?
-    result = result !& hashIgnoreCase(name)
+    when proj.namespaceIgnoreCase():
+      result = result !& hashIgnoreCase(name)
+    else:
+      result = result !& hash(name)
 
 func NS32*(dottedNames: static string): NamespaceHash32 {.compileTime.} =
   ## A compile-time hash of a dotted namespace (case insensitive)

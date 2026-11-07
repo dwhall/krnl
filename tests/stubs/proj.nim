@@ -3,3 +3,7 @@
 ## Project-specific definition stubs for testing
 
 type EventValue* = uint32
+
+func namespaceIgnoreCase*(): bool {.compileTime.} =
+  ## Returns true if the project wants to ignore case in namespace hashing
+  true
